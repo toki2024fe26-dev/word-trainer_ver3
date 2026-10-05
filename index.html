@@ -1,0 +1,283 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#17182b">
+  <title>PIXEL ENGLISH QUEST</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div>
+      <div class="eyebrow">ENGLISH TRAINING RPG</div>
+      <h1>PIXEL ENGLISH <span>QUEST</span></h1>
+    </div>
+
+    <button id="resetScoreBtn" class="reset-btn">
+      SCORE RESET
+    </button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ================= HOME ================= -->
+  <section id="homeScreen" class="screen active">
+
+    <div class="hero-card">
+      <div>
+        <p class="hero-kicker">DAILY LANGUAGE ADVENTURE</p>
+        <h2>英単語を覚えて、<br><span>QUESTを攻略。</span></h2>
+        <p class="hero-description">
+          10問の英単語クエストに挑戦。<br>
+          敵を倒しながらスコアを伸ばそう。
+        </p>
+      </div>
+
+      <div class="hero-stats">
+        <div>
+          <small>WORDS</small>
+          <strong id="wordCount">0</strong>
+        </div>
+        <div>
+          <small>BEST</small>
+          <strong id="bestScore">0</strong>
+        </div>
+        <div>
+          <small>STREAK</small>
+          <strong id="streakCount">0</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+
+      <section class="panel register-panel">
+        <div class="panel-heading">
+          <span class="panel-number">01</span>
+          <h3>WORD REGISTER</h3>
+        </div>
+
+        <div class="input-row">
+          <input id="englishInput" type="text" placeholder="English word">
+          <input id="japaneseInput" type="text" placeholder="日本語の意味">
+          <button id="addWordBtn" class="primary-btn">ADD</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <span class="panel-number">02</span>
+          <h3>QUICK ACCESS</h3>
+        </div>
+
+        <div class="action-grid">
+          <button class="action-btn" data-screen="wordbookScreen">
+            <strong>WORD BOOK</strong>
+            <small>単語一覧</small>
+          </button>
+
+          <button class="action-btn" data-screen="flashcardScreen">
+            <strong>FLASH CARD</strong>
+            <small>暗記モード</small>
+          </button>
+
+          <button class="action-btn" data-screen="csvScreen">
+            <strong>DATA</strong>
+            <small>CSV入出力</small>
+          </button>
+
+          <button id="startQuestBtn" class="action-btn quest-btn">
+            <strong>START QUEST</strong>
+            <small>10問に挑戦</small>
+          </button>
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+
+  <!-- ================= QUIZ ================= -->
+  <section id="quizScreen" class="screen">
+
+    <div class="quiz-top">
+      <button class="back-btn" data-screen="homeScreen">← HOME</button>
+
+      <div class="question-progress">
+        <span id="questionNumber">01</span>
+        <div class="progress-track">
+          <div id="questionProgress" class="progress-fill"></div>
+        </div>
+        <span>10</span>
+      </div>
+    </div>
+
+    <div class="battle-card">
+
+      <div class="battle-header">
+        <div>
+          <span id="stageBadge" class="stage-badge">STAGE 1</span>
+          <h2 id="enemyName">PIXEL SLIME</h2>
+        </div>
+
+        <div class="enemy-hp">
+          <span>HP</span>
+          <div class="hp-track">
+            <div id="enemyHp" class="hp-fill"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="battle-window">
+        <canvas id="battleCanvas" width="320" height="180"></canvas>
+      </div>
+
+      <div class="battle-message" id="battleMessage">
+        SELECT THE CORRECT ANSWER
+      </div>
+
+      <div class="question-box">
+        <span class="question-label">QUESTION</span>
+        <div id="questionWord" class="question-word">---</div>
+      </div>
+
+      <div id="answers" class="answers-grid"></div>
+
+      <div class="battle-footer">
+        <span>HIT <b id="hitCount">0</b></span>
+        <span>SCORE <b id="quizScore">0</b></span>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ================= WORDBOOK ================= -->
+  <section id="wordbookScreen" class="screen">
+
+    <div class="screen-title">
+      <button class="back-btn" data-screen="homeScreen">← HOME</button>
+      <div>
+        <span>DATABASE</span>
+        <h2>WORD BOOK</h2>
+      </div>
+    </div>
+
+    <div id="wordList" class="word-list"></div>
+
+  </section>
+
+
+  <!-- ================= FLASHCARD ================= -->
+  <section id="flashcardScreen" class="screen">
+
+    <div class="screen-title">
+      <button class="back-btn" data-screen="homeScreen">← HOME</button>
+      <div>
+        <span>TRAINING MODE</span>
+        <h2>FLASH CARD</h2>
+      </div>
+    </div>
+
+    <div class="flashcard-area">
+
+      <button id="prevCardBtn" class="round-btn">←</button>
+
+      <div id="flashcard" class="flashcard">
+        <span class="flashcard-label">ENGLISH</span>
+        <strong id="flashEnglish">---</strong>
+        <span id="flashJapanese" class="flash-japanese">---</span>
+        <small>CLICK TO FLIP</small>
+      </div>
+
+      <button id="nextCardBtn" class="round-btn">→</button>
+
+    </div>
+
+    <div id="flashIndex" class="flash-index">1 / 1</div>
+
+  </section>
+
+
+  <!-- ================= CSV ================= -->
+  <section id="csvScreen" class="screen">
+
+    <div class="screen-title">
+      <button class="back-btn" data-screen="homeScreen">← HOME</button>
+      <div>
+        <span>DATABASE</span>
+        <h2>DATA MANAGEMENT</h2>
+      </div>
+    </div>
+
+    <div class="panel csv-panel">
+
+      <div class="data-action">
+        <h3>EXPORT</h3>
+        <p>登録した単語をCSVファイルとして保存します。</p>
+        <button id="exportCsvBtn" class="primary-btn">EXPORT CSV</button>
+      </div>
+
+      <div class="data-action">
+        <h3>IMPORT</h3>
+        <p>CSVファイルから単語を追加します。</p>
+        <button id="importCsvBtn" class="primary-btn">IMPORT CSV</button>
+        <input id="csvFileInput" type="file" accept=".csv,text/csv" hidden>
+      </div>
+
+    </div>
+  </section>
+
+
+  <!-- ================= RESULT ================= -->
+  <section id="resultScreen" class="screen">
+
+    <div class="result-card">
+
+      <span class="result-label">QUEST COMPLETE</span>
+
+      <h2 id="resultTitle">MISSION COMPLETE</h2>
+
+      <div class="result-score">
+        <small>SCORE</small>
+        <strong id="resultScore">0</strong>
+      </div>
+
+      <div class="result-stats">
+        <div>
+          <span>CORRECT</span>
+          <b id="resultCorrect">0 / 10</b>
+        </div>
+        <div>
+          <span>BEST</span>
+          <b id="resultBest">0</b>
+        </div>
+      </div>
+
+      <button id="resultHomeBtn" class="primary-btn large">
+        BACK TO HOME
+      </button>
+
+    </div>
+
+  </section>
+
+</main>
+
+<div id="toast" class="toast"></div>
+
+<script src="script.js"></script>
+
+</body>
+</html>
