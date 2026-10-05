@@ -106,6 +106,21 @@ button {
   border: 0;
 }
 
+/* START QUESTだけピクセル文字 */
+.quest-btn strong {
+  font-family: "Silkscreen", monospace;
+  font-weight: 700;
+  letter-spacing: .02em;
+  background: linear-gradient(180deg, #fff3a6 0%, #ffcf58 35%, #ef6f9d 70%, #8d5be5 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 2px 0 rgba(38,28,61,.75), 0 4px 0 rgba(38,28,61,.35);
+  font-size: 13px;
+}
+
+
 .reset-btn {
   padding: 9px 14px;
   color: #e9b5c7;
