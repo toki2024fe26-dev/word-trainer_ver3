@@ -4,10 +4,16 @@
    PIXEL ENGLISH QUEST
    ========================================================= */
 
+/* ================= STORAGE ================= */
+
 const STORAGE = {
   words: "pixelEnglishWords",
   best: "pixelEnglishBest",
-  streak: "pixelEnglishStreak"
+  streak: "pixelEnglishStreak",
+  calendar: "pixelEnglishCalendar",
+  monsterBook: "pixelEnglishMonsterBook",
+  items: "pixelEnglishItems",
+  totalCorrect: "pixelEnglishTotalCorrect"
 };
 
 /* =========================================================
@@ -17,18 +23,12 @@ const STORAGE = {
 let audioCtx = null;
 let masterGain = null;
 let bgmTimer = null;
+let bgmMode = "none";
 let soundEnabled = true;
 
-/* ---------------------------------------------------------
-   AudioContext 初期化
-   --------------------------------------------------------- */
-
 function initAudio() {
-
   try {
-
     if (!audioCtx) {
-
       const AudioContext =
         window.AudioContext ||
         window.webkitAudioContext;
@@ -40,94 +40,46 @@ function initAudio() {
 
       audioCtx = new AudioContext();
 
-      masterGain =
-        audioCtx.createGain();
-
+      masterGain = audioCtx.createGain();
       masterGain.gain.value = 0.18;
-
-      masterGain.connect(
-        audioCtx.destination
-      );
+      masterGain.connect(audioCtx.destination);
     }
 
-    if (
-      audioCtx.state === "suspended"
-    ) {
+    if (audioCtx.state === "suspended") {
       audioCtx.resume();
     }
 
     return true;
-
   } catch (error) {
-
-    console.warn(
-      "Audio initialization failed:",
-      error
-    );
-
+    console.warn("Audio initialization failed:", error);
     return false;
   }
 }
 
-
-/* ---------------------------------------------------------
-   AudioContext を確実に開始
-   --------------------------------------------------------- */
-
 function unlockAudio() {
-
-  const started =
-    initAudio();
+  const started = initAudio();
 
   if (
     started &&
     audioCtx &&
     audioCtx.state === "suspended"
   ) {
-
-    audioCtx.resume().catch(
-      error => {
-        console.warn(
-          "Audio resume failed:",
-          error
-        );
-      }
-    );
+    audioCtx.resume().catch(error => {
+      console.warn("Audio resume failed:", error);
+    });
   }
 }
-
-
-/* ---------------------------------------------------------
-   安全に音を鳴らす
-   --------------------------------------------------------- */
 
 function playSound(callback) {
-
-  if (!soundEnabled) {
-    return;
-  }
-
-  if (!initAudio()) {
-    return;
-  }
+  if (!soundEnabled) return;
+  if (!initAudio()) return;
 
   try {
-
     callback();
-
   } catch (error) {
-
-    console.warn(
-      "Sound error:",
-      error
-    );
+    console.warn("Sound error:", error);
   }
 }
-
-
-/* ---------------------------------------------------------
-   Oscillator
-   --------------------------------------------------------- */
 
 function createTone(
   type,
@@ -136,22 +88,13 @@ function createTone(
   volume = 0.1,
   delay = 0
 ) {
+  if (!audioCtx || !masterGain) return;
 
-  if (!audioCtx || !masterGain) {
-    return;
-  }
+  const oscillator = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
 
-  const oscillator =
-    audioCtx.createOscillator();
-
-  const gain =
-    audioCtx.createGain();
-
-  const start =
-    audioCtx.currentTime + delay;
-
-  const end =
-    start + duration;
+  const start = audioCtx.currentTime + delay;
+  const end = start + duration;
 
   oscillator.type = type;
 
@@ -182,11 +125,6 @@ function createTone(
   oscillator.stop(end + 0.03);
 }
 
-
-/* ---------------------------------------------------------
-   周波数を滑らせる音
-   --------------------------------------------------------- */
-
 function createSweep(
   type,
   startFrequency,
@@ -195,22 +133,13 @@ function createSweep(
   volume = 0.1,
   delay = 0
 ) {
+  if (!audioCtx || !masterGain) return;
 
-  if (!audioCtx || !masterGain) {
-    return;
-  }
+  const oscillator = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
 
-  const oscillator =
-    audioCtx.createOscillator();
-
-  const gain =
-    audioCtx.createGain();
-
-  const start =
-    audioCtx.currentTime + delay;
-
-  const end =
-    start + duration;
+  const start = audioCtx.currentTime + delay;
+  const end = start + duration;
 
   oscillator.type = type;
 
@@ -246,54 +175,32 @@ function createSweep(
   oscillator.stop(end + 0.03);
 }
 
-
-/* ---------------------------------------------------------
-   ノイズ
-   --------------------------------------------------------- */
-
 function createNoise(
   duration = 0.1,
   volume = 0.1,
   frequency = 1800
 ) {
+  if (!audioCtx || !masterGain) return;
 
-  if (!audioCtx || !masterGain) {
-    return;
+  const length = Math.floor(
+    audioCtx.sampleRate * duration
+  );
+
+  const buffer = audioCtx.createBuffer(
+    1,
+    length,
+    audioCtx.sampleRate
+  );
+
+  const data = buffer.getChannelData(0);
+
+  for (let i = 0; i < length; i++) {
+    data[i] = Math.random() * 2 - 1;
   }
 
-  const length =
-    Math.floor(
-      audioCtx.sampleRate * duration
-    );
-
-  const buffer =
-    audioCtx.createBuffer(
-      1,
-      length,
-      audioCtx.sampleRate
-    );
-
-  const data =
-    buffer.getChannelData(0);
-
-  for (
-    let i = 0;
-    i < length;
-    i++
-  ) {
-
-    data[i] =
-      Math.random() * 2 - 1;
-  }
-
-  const source =
-    audioCtx.createBufferSource();
-
-  const filter =
-    audioCtx.createBiquadFilter();
-
-  const gain =
-    audioCtx.createGain();
+  const source = audioCtx.createBufferSource();
+  const filter = audioCtx.createBiquadFilter();
+  const gain = audioCtx.createGain();
 
   source.buffer = buffer;
 
@@ -301,11 +208,8 @@ function createNoise(
   filter.frequency.value = frequency;
   filter.Q.value = 0.8;
 
-  const start =
-    audioCtx.currentTime;
-
-  const end =
-    start + duration;
+  const start = audioCtx.currentTime;
+  const end = start + duration;
 
   gain.gain.setValueAtTime(
     0.0001,
@@ -330,17 +234,10 @@ function createNoise(
   source.stop(end + 0.02);
 }
 
-
-/* =========================================================
-   SOUND EFFECTS
-   ========================================================= */
-
-/* ボタン */
+/* ================= SOUND EFFECTS ================= */
 
 function playButtonSound() {
-
   playSound(() => {
-
     createTone(
       "square",
       660,
@@ -355,17 +252,11 @@ function playButtonSound() {
       0.04,
       0.035
     );
-
   });
 }
 
-
-/* クエスト開始 */
-
 function playStartSound() {
-
   playSound(() => {
-
     createTone(
       "square",
       261.63,
@@ -396,17 +287,11 @@ function playStartSound() {
       0.09,
       0.32
     );
-
   });
 }
 
-
-/* 正解 */
-
 function playCorrectSound() {
-
   playSound(() => {
-
     createTone(
       "square",
       523.25,
@@ -429,17 +314,11 @@ function playCorrectSound() {
       0.09,
       0.16
     );
-
   });
 }
 
-
-/* 不正解 */
-
 function playWrongSound() {
-
   playSound(() => {
-
     createSweep(
       "sawtooth",
       240,
@@ -455,17 +334,11 @@ function playWrongSound() {
       0.05,
       0.08
     );
-
   });
 }
 
-
-/* 剣 */
-
 function playSwordSound() {
-
   playSound(() => {
-
     createNoise(
       0.12,
       0.07,
@@ -479,17 +352,11 @@ function playSwordSound() {
       0.12,
       0.045
     );
-
   });
 }
 
-
-/* ヒット */
-
 function playHitSound() {
-
   playSound(() => {
-
     createNoise(
       0.08,
       0.13,
@@ -503,17 +370,11 @@ function playHitSound() {
       0.16,
       0.10
     );
-
   });
 }
 
-
-/* 敵撃破 */
-
 function playDefeatSound() {
-
   playSound(() => {
-
     createTone(
       "square",
       392.00,
@@ -550,17 +411,11 @@ function playDefeatSound() {
       0.07,
       1100
     );
-
   });
 }
 
-
-/* リザルト */
-
 function playResultSound() {
-
   playSound(() => {
-
     createTone(
       "triangle",
       523.25,
@@ -591,39 +446,31 @@ function playResultSound() {
       0.10,
       0.44
     );
-
   });
 }
-
 
 /* =========================================================
    BGM
    ========================================================= */
 
-function startBGM() {
+/*
+  通常戦闘BGM
+  軽快なSFC後期〜PS1初期RPG風
+*/
 
+function startNormalBGM() {
   stopBGM();
 
-  if (!soundEnabled) {
-    return;
-  }
+  if (!soundEnabled) return;
+  if (!initAudio()) return;
 
-  if (!initAudio()) {
-    return;
-  }
-
-  /*
-    少し落ち着いた、
-    SFC後期〜PS1初期っぽい
-    RPG探索系のループ。
-  */
+  bgmMode = "normal";
 
   const notes = [
     261.63,
     329.63,
     392.00,
     329.63,
-
     293.66,
     349.23,
     440.00,
@@ -633,10 +480,10 @@ function startBGM() {
   let index = 0;
 
   function note() {
-
     if (
       !audioCtx ||
-      !soundEnabled
+      !soundEnabled ||
+      bgmMode !== "normal"
     ) {
       return;
     }
@@ -648,12 +495,7 @@ function startBGM() {
       0.025
     );
 
-    /*
-      低いベースを少しだけ追加
-    */
-
     if (index % 2 === 0) {
-
       createTone(
         "sine",
         notes[index] / 2,
@@ -671,26 +513,132 @@ function startBGM() {
 
   note();
 
-  bgmTimer =
-    setInterval(
-      note,
-      300
-    );
+  bgmTimer = setInterval(
+    note,
+    300
+  );
 }
 
+/*
+  ボスBGM
+  低いベース＋不安定な音程＋速いパルス
+  通常BGMより緊張感を強くする
+*/
 
-function stopBGM() {
+function startBossBGM() {
+  stopBGM();
 
-  if (bgmTimer !== null) {
+  if (!soundEnabled) return;
+  if (!initAudio()) return;
 
-    clearInterval(bgmTimer);
+  bgmMode = "boss";
 
-    bgmTimer = null;
+  const bassNotes = [
+    110,
+    110,
+    130.81,
+    98,
+    110,
+    92.50,
+    103.83,
+    98
+  ];
+
+  const melodyNotes = [
+    220,
+    233.08,
+    196,
+    207.65,
+    220,
+    185,
+    196,
+    207.65
+  ];
+
+  let index = 0;
+
+  function note() {
+    if (
+      !audioCtx ||
+      !soundEnabled ||
+      bgmMode !== "boss"
+    ) {
+      return;
+    }
+
+    const bass =
+      bassNotes[index];
+
+    const melody =
+      melodyNotes[index];
+
+    createTone(
+      "sawtooth",
+      bass,
+      0.20,
+      0.030
+    );
+
+    createTone(
+      "square",
+      melody,
+      0.10,
+      0.016,
+      0.06
+    );
+
+    if (
+      index === 0 ||
+      index === 4
+    ) {
+      createNoise(
+        0.055,
+        0.025,
+        800
+      );
+    }
+
+    index++;
+
+    if (
+      index >=
+      bassNotes.length
+    ) {
+      index = 0;
+    }
+  }
+
+  note();
+
+  bgmTimer = setInterval(
+    note,
+    220
+  );
+}
+
+function startBGMForCurrentStage() {
+  const stage =
+    stages[currentStage];
+
+  if (stage && stage.boss) {
+    startBossBGM();
+  } else {
+    startNormalBGM();
   }
 }
 
+function stopBGM() {
+  if (bgmTimer !== null) {
+    clearInterval(bgmTimer);
+    bgmTimer = null;
+  }
 
-/* ================= DEFAULT WORDS ================= */
+  bgmMode = "none";
+}
+
+/* =========================================================
+   DEFAULT WORDS
+   ========================================================= */
 
 const DEFAULT_WORDS = [
   ["refer", "言及する"],
@@ -726,12 +674,113 @@ const DEFAULT_WORDS = [
   ["willing", "意欲がある"]
 ];
 
+/* =========================================================
+   MONSTER DATA
+   ========================================================= */
 
-/* ================= STATE ================= */
+const MONSTERS = [
+  {
+    id: "moon-slime",
+    name: "MOON SLIME",
+    type: "slime",
+    description: "月明かりの谷に現れる紫色のスライム。",
+    rarity: "COMMON",
+    boss: false
+  },
+  {
+    id: "shadow-bat",
+    name: "SHADOW BAT",
+    type: "bat",
+    description: "暗闇を飛び回る夜のコウモリ。",
+    rarity: "COMMON",
+    boss: false
+  },
+  {
+    id: "forest-mandraga",
+    name: "FOREST MANDRAGA",
+    type: "mandraga",
+    description: "古代森林に眠る植物型モンスター。",
+    rarity: "UNCOMMON",
+    boss: false
+  },
+  {
+    id: "night-wolf",
+    name: "NIGHT WOLF",
+    type: "wolf",
+    description: "夜の森を駆ける俊敏な魔獣。",
+    rarity: "UNCOMMON",
+    boss: false
+  },
+  {
+    id: "phantom",
+    name: "PHANTOM",
+    type: "phantom",
+    description: "廃墟に現れる正体不明の亡霊。",
+    rarity: "RARE",
+    boss: false
+  },
+  {
+    id: "iron-golem",
+    name: "IRON GOLEM",
+    type: "golem",
+    description: "古代文明の遺跡を守る鉄の巨人。",
+    rarity: "RARE",
+    boss: false
+  },
+  {
+    id: "astral-dragon",
+    name: "ASTRAL DRAGON",
+    type: "dragon",
+    description: "星の力を宿した最上級モンスター。",
+    rarity: "BOSS",
+    boss: true
+  }
+];
+
+/* =========================================================
+   STAGES
+   ========================================================= */
+
+const stages = [
+  {
+    name: "MOON SLIME",
+    type: "slime",
+    monsterId: "moon-slime",
+    maxHits: 3,
+    boss: false
+  },
+  {
+    name: "SHADOW BAT",
+    type: "bat",
+    monsterId: "shadow-bat",
+    maxHits: 3,
+    boss: false
+  },
+  {
+    name: "ASTRAL DRAGON",
+    type: "dragon",
+    monsterId: "astral-dragon",
+    maxHits: 4,
+    boss: true
+  }
+];
+
+/* =========================================================
+   STATE
+   ========================================================= */
 
 let words = [];
+
 let bestScore = 0;
 let streak = 0;
+
+let calendarData = {};
+let monsterBook = {};
+let items = {
+  recovery: 0
+};
+
+let totalCorrect = 0;
 
 let currentScreen = "homeScreen";
 
@@ -760,48 +809,31 @@ let battleState = {
   particles: []
 };
 
-const stages = [
-  {
-    name: "MOON SLIME",
-    type: "slime",
-    maxHits: 3
-  },
-  {
-    name: "SHADOW BAT",
-    type: "bat",
-    maxHits: 3
-  },
-  {
-    name: "ASTRAL DRAGON",
-    type: "dragon",
-    maxHits: 4
-  }
-];
-
-
-/* ================= DOM ================= */
+/* =========================================================
+   DOM
+   ========================================================= */
 
 const $ =
-  (selector) =>
+  selector =>
     document.querySelector(selector);
 
 const screens =
-  document.querySelectorAll(".screen");
+  document.querySelectorAll(
+    ".screen"
+  );
 
-
-/* ================= STORAGE ================= */
+/* =========================================================
+   STORAGE
+   ========================================================= */
 
 function loadData() {
-
   try {
-
     const savedWords =
       localStorage.getItem(
         STORAGE.words
       );
 
     if (savedWords) {
-
       const parsed =
         JSON.parse(savedWords);
 
@@ -812,7 +844,6 @@ function loadData() {
     }
 
     if (!words.length) {
-
       words =
         DEFAULT_WORDS.map(
           ([en, jp]) => ({
@@ -838,8 +869,52 @@ function loadData() {
         )
       ) || 0;
 
-  } catch (error) {
+    calendarData =
+      JSON.parse(
+        localStorage.getItem(
+          STORAGE.calendar
+        ) || "{}"
+      );
 
+    monsterBook =
+      JSON.parse(
+        localStorage.getItem(
+          STORAGE.monsterBook
+        ) || "{}"
+      );
+
+    items =
+      JSON.parse(
+        localStorage.getItem(
+          STORAGE.items
+        ) ||
+        '{"recovery":0}'
+      );
+
+    totalCorrect =
+      Number(
+        localStorage.getItem(
+          STORAGE.totalCorrect
+        )
+      ) || 0;
+
+    if (
+      !items ||
+      typeof items !== "object"
+    ) {
+      items = {
+        recovery: 0
+      };
+    }
+
+    if (
+      typeof items.recovery !==
+      "number"
+    ) {
+      items.recovery = 0;
+    }
+
+  } catch (error) {
     console.error(error);
 
     words =
@@ -852,22 +927,24 @@ function loadData() {
 
     bestScore = 0;
     streak = 0;
+    calendarData = {};
+    monsterBook = {};
+    items = {
+      recovery: 0
+    };
+    totalCorrect = 0;
   }
 }
 
-
 function normalizeWords(list) {
-
   const result = [];
   const seen = new Set();
 
   list.forEach(item => {
-
     let en = "";
     let jp = "";
 
     if (Array.isArray(item)) {
-
       en =
         String(
           item[0] || ""
@@ -879,7 +956,6 @@ function normalizeWords(list) {
         ).trim();
 
     } else {
-
       en =
         String(
           item.en || ""
@@ -913,18 +989,14 @@ function normalizeWords(list) {
   return result;
 }
 
-
 function saveWords() {
-
   localStorage.setItem(
     STORAGE.words,
     JSON.stringify(words)
   );
 }
 
-
 function saveStats() {
-
   localStorage.setItem(
     STORAGE.best,
     String(bestScore)
@@ -934,32 +1006,219 @@ function saveStats() {
     STORAGE.streak,
     String(streak)
   );
+
+  localStorage.setItem(
+    STORAGE.totalCorrect,
+    String(totalCorrect)
+  );
 }
 
+function saveGameData() {
+  localStorage.setItem(
+    STORAGE.calendar,
+    JSON.stringify(calendarData)
+  );
 
-/* ================= UI ================= */
+  localStorage.setItem(
+    STORAGE.monsterBook,
+    JSON.stringify(monsterBook)
+  );
 
-function renderStats() {
-
-  $("#wordCount").textContent =
-    words.length;
-
-  $("#bestScore").textContent =
-    bestScore;
-
-  $("#streakCount").textContent =
-    streak;
+  localStorage.setItem(
+    STORAGE.items,
+    JSON.stringify(items)
+  );
 }
 
+/* =========================================================
+   DAILY LEARNING
+   ========================================================= */
 
-function showScreen(id) {
+function getDateKey(date = new Date()) {
+  const year =
+    date.getFullYear();
 
-  screens.forEach(screen => {
+  const month =
+    String(
+      date.getMonth() + 1
+    ).padStart(2, "0");
 
-    screen.classList.remove(
-      "active"
+  const day =
+    String(
+      date.getDate()
+    ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function markTodayPlayed() {
+  const today =
+    getDateKey();
+
+  if (!calendarData[today]) {
+    calendarData[today] = {
+      played: true
+    };
+  }
+
+  updateStreak();
+
+  saveGameData();
+  saveStats();
+}
+
+function updateStreak() {
+  let count = 0;
+
+  const date =
+    new Date();
+
+  while (true) {
+    const key =
+      getDateKey(date);
+
+    if (!calendarData[key]) {
+      break;
+    }
+
+    count++;
+
+    date.setDate(
+      date.getDate() - 1
+    );
+  }
+
+  streak = count;
+
+  /*
+    7日連続達成ごとに
+    リカバリーアイテムを1個。
+  */
+
+  const rewardCount =
+    Math.floor(
+      streak / 7
+    );
+
+  const rewardKey =
+    `reward-${streak -
+      (streak % 7)}`;
+
+  const claimed =
+    localStorage.getItem(
+      "pixelEnglishRewardClaim"
+    ) || "";
+
+  if (
+    rewardCount > 0 &&
+    claimed !== rewardKey
+  ) {
+    items.recovery += 1;
+
+    localStorage.setItem(
+      "pixelEnglishRewardClaim",
+      rewardKey
+    );
+
+    showToast(
+      "7日連続学習達成！\nリカバリーエリクサーを獲得！"
+    );
+
+    playRewardSound();
+  }
+}
+
+function playRewardSound() {
+  playSound(() => {
+    createTone(
+      "triangle",
+      523.25,
+      0.12,
+      0.07
+    );
+
+    createTone(
+      "triangle",
+      659.25,
+      0.12,
+      0.07,
+      0.12
+    );
+
+    createTone(
+      "triangle",
+      783.99,
+      0.15,
+      0.08,
+      0.24
+    );
+
+    createTone(
+      "triangle",
+      1046.50,
+      0.30,
+      0.09,
+      0.39
     );
   });
+}
+
+/* =========================================================
+   MONSTER BOOK
+   ========================================================= */
+
+function registerMonster(monsterId) {
+  if (!monsterId) return;
+
+  if (!monsterBook[monsterId]) {
+    monsterBook[monsterId] = {
+      defeated: 0,
+      discoveredAt: getDateKey()
+    };
+  }
+
+  monsterBook[monsterId].defeated += 1;
+
+  saveGameData();
+}
+
+function getDiscoveredCount() {
+  return Object.keys(
+    monsterBook
+  ).length;
+}
+
+/* =========================================================
+   UI
+   ========================================================= */
+
+function renderStats() {
+  if ($("#wordCount")) {
+    $("#wordCount").textContent =
+      words.length;
+  }
+
+  if ($("#bestScore")) {
+    $("#bestScore").textContent =
+      bestScore;
+  }
+
+  if ($("#streakCount")) {
+    $("#streakCount").textContent =
+      streak;
+  }
+}
+
+function showScreen(id) {
+  // 追加生成される図鑑・カレンダーも含めて毎回取得する。
+  // 初期化時のNodeListだけを使うと、後から追加した画面を閉じられない。
+  document
+    .querySelectorAll(".screen")
+    .forEach(screen => {
+      screen.classList.remove(
+        "active"
+      );
+    });
 
   const target =
     document.getElementById(id);
@@ -968,7 +1227,9 @@ function showScreen(id) {
     return;
   }
 
-  target.classList.add("active");
+  target.classList.add(
+    "active"
+  );
 
   currentScreen = id;
 
@@ -977,11 +1238,15 @@ function showScreen(id) {
     behavior: "smooth"
   });
 
-  if (id === "wordbookScreen") {
+  if (
+    id === "wordbookScreen"
+  ) {
     renderWordBook();
   }
 
-  if (id === "flashcardScreen") {
+  if (
+    id === "flashcardScreen"
+  ) {
     renderFlashcard();
   }
 
@@ -990,38 +1255,784 @@ function showScreen(id) {
   }
 }
 
-
-/* ================= TOAST ================= */
+/* =========================================================
+   TOAST
+   ========================================================= */
 
 let toastTimer = null;
 
 function showToast(message) {
-
   const toast =
     $("#toast");
+
+  if (!toast) {
+    return;
+  }
 
   toast.textContent =
     message;
 
-  toast.classList.add("show");
+  toast.classList.add(
+    "show"
+  );
 
   clearTimeout(toastTimer);
 
   toastTimer =
     setTimeout(() => {
-
       toast.classList.remove(
         "show"
       );
-
     }, 2200);
 }
 
+/* =========================================================
+   EXTRA MENU
+   JavaScriptだけで追加画面を作る
+   ========================================================= */
 
-/* ================= WORD REGISTER ================= */
+function createExtraScreens() {
+  if (
+    document.getElementById(
+      "monsterBookScreen"
+    )
+  ) {
+    return;
+  }
+
+  const style =
+    document.createElement(
+      "style"
+    );
+
+  style.textContent = `
+    .extra-screen {
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    .extra-inner {
+      width: min(900px, 100%);
+      margin: 0 auto;
+    }
+
+    .extra-title {
+      font-size: 22px;
+      letter-spacing: .12em;
+      margin-bottom: 18px;
+    }
+
+    .extra-panel {
+      padding: 18px;
+      margin-bottom: 14px;
+      border-radius: 8px;
+    }
+
+    .monster-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .monster-card {
+      min-height: 130px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 8px;
+    }
+
+    .monster-card.locked {
+      opacity: .48;
+    }
+
+    .monster-sprite {
+      position: relative;
+      width: 100%;
+      height: 108px;
+      margin-bottom: 8px;
+      overflow: hidden;
+      background: transparent;
+      border: 0;
+    }
+
+    .monster-frame {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      opacity: 0;
+      animation: monsterBookIdle 1.1s steps(1, end) infinite;
+    }
+
+    .monster-frame-a {
+      animation-delay: 0s;
+    }
+
+    .monster-frame-b {
+      animation-delay: .55s;
+    }
+
+    @keyframes monsterBookIdle {
+      0%, 49.99% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    .monster-name {
+      font-weight: bold;
+      letter-spacing: .08em;
+      margin-bottom: 6px;
+    }
+
+    .monster-meta {
+      font-size: 11px;
+      opacity: .75;
+      margin-bottom: 8px;
+    }
+
+    .monster-description {
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .calendar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .calendar-grid {
+      display: grid;
+      grid-template-columns:
+        repeat(7, 1fr);
+      gap: 5px;
+    }
+
+    .calendar-weekday,
+    .calendar-day {
+      text-align: center;
+      font-size: 11px;
+      padding: 7px 2px;
+    }
+
+    .calendar-day {
+      min-height: 34px;
+      border-radius: 5px;
+      background: rgba(255,255,255,.05);
+    }
+
+    .calendar-day.played {
+      background: rgba(126, 184, 146, .34);
+      box-shadow:
+        inset 0 0 0 1px
+        rgba(170,230,180,.35);
+    }
+
+    .calendar-day.today {
+      outline: 2px solid rgba(240,210,130,.8);
+    }
+
+    .calendar-day.empty {
+      background: transparent;
+    }
+
+    .reward-box {
+      border: 1px solid rgba(240,210,130,.35);
+    }
+
+    .reward-icon {
+      font-size: 28px;
+      margin-bottom: 6px;
+    }
+
+    .back-extra-btn {
+      margin-top: 10px;
+    }
+
+    @media (max-width: 560px) {
+      .monster-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+
+  const monsterScreen =
+    document.createElement(
+      "section"
+    );
+
+  monsterScreen.id =
+    "monsterBookScreen";
+
+  monsterScreen.className =
+    "screen extra-screen";
+
+  monsterScreen.innerHTML = `
+    <div class="extra-inner">
+      <div class="extra-title">
+        MONSTER BOOK
+      </div>
+
+      <div class="extra-panel">
+        <strong id="monsterBookCount">
+          0 / ${MONSTERS.length}
+        </strong>
+        <div>
+          発見したモンスター
+        </div>
+      </div>
+
+      <div
+        id="monsterBookList"
+        class="monster-grid">
+      </div>
+
+      <button
+        class="back-extra-btn"
+        data-extra-back>
+        BACK
+      </button>
+    </div>
+  `;
+
+  const calendarScreen =
+    document.createElement(
+      "section"
+    );
+
+  calendarScreen.id =
+    "calendarScreen";
+
+  calendarScreen.className =
+    "screen extra-screen";
+
+  calendarScreen.innerHTML = `
+    <div class="extra-inner">
+      <div class="extra-title">
+        LEARNING CALENDAR
+      </div>
+
+      <div class="extra-panel reward-box">
+        <div class="reward-icon">
+          🧪
+        </div>
+
+        <strong id="recoveryCount">
+          RECOVERY ELIXIR ×0
+        </strong>
+
+        <div id="rewardMessage">
+          7日連続学習でアイテムを獲得！
+        </div>
+      </div>
+
+      <div class="extra-panel">
+        <div class="calendar-head">
+          <button
+            id="calendarPrev">
+            ◀
+          </button>
+
+          <strong id="calendarTitle">
+          </strong>
+
+          <button
+            id="calendarNext">
+            ▶
+          </button>
+        </div>
+
+        <div
+          id="calendarGrid"
+          class="calendar-grid">
+        </div>
+      </div>
+
+      <button
+        class="back-extra-btn"
+        data-extra-back>
+        BACK
+      </button>
+    </div>
+  `;
+
+  document.body.appendChild(
+    monsterScreen
+  );
+
+  document.body.appendChild(
+    calendarScreen
+  );
+
+  monsterScreen
+    .querySelector(
+      "[data-extra-back]"
+    )
+    .addEventListener(
+      "click",
+      () => {
+        playButtonSound();
+        showScreen(
+          "homeScreen"
+        );
+      }
+    );
+
+  calendarScreen
+    .querySelector(
+      "[data-extra-back]"
+    )
+    .addEventListener(
+      "click",
+      () => {
+        playButtonSound();
+        showScreen(
+          "homeScreen"
+        );
+      }
+    );
+
+  $("#calendarPrev")
+    .addEventListener(
+      "click",
+      () => {
+        playButtonSound();
+
+        calendarViewMonth--;
+
+        if (
+          calendarViewMonth <
+          0
+        ) {
+          calendarViewMonth = 11;
+          calendarViewYear--;
+        }
+
+        renderCalendar();
+      }
+    );
+
+  $("#calendarNext")
+    .addEventListener(
+      "click",
+      () => {
+        playButtonSound();
+
+        calendarViewMonth++;
+
+        if (
+          calendarViewMonth >
+          11
+        ) {
+          calendarViewMonth = 0;
+          calendarViewYear++;
+        }
+
+        renderCalendar();
+      }
+    );
+}
+
+/* =========================================================
+   EXTRA NAV BUTTONS
+   ========================================================= */
+
+function createExtraNavigation() {
+  if (
+    document.getElementById(
+      "extraNavigation"
+    )
+  ) {
+    return;
+  }
+
+  const home =
+    $("#homeScreen");
+
+  if (!home) {
+    return;
+  }
+
+  const box =
+    document.createElement(
+      "div"
+    );
+
+  box.id =
+    "extraNavigation";
+
+  box.style.cssText = `
+    display:grid;
+    grid-template-columns:
+      repeat(2,minmax(0,1fr));
+    gap:10px;
+    margin-top:16px;
+  `;
+
+  box.innerHTML = `
+    <button
+      id="openMonsterBookBtn">
+      MONSTER BOOK
+    </button>
+
+    <button
+      id="openCalendarBtn">
+      LEARNING CALENDAR
+    </button>
+  `;
+
+  home.appendChild(box);
+
+  $("#openMonsterBookBtn")
+    .addEventListener(
+      "click",
+      () => {
+        playButtonSound();
+
+        showScreen(
+          "monsterBookScreen"
+        );
+
+        renderMonsterBook();
+      }
+    );
+
+  $("#openCalendarBtn")
+    .addEventListener(
+      "click",
+      () => {
+        playButtonSound();
+
+        showScreen(
+          "calendarScreen"
+        );
+
+        renderCalendar();
+      }
+    );
+}
+
+/* =========================================================
+   MONSTER BOOK UI
+   ========================================================= */
+
+function renderMonsterBook() {
+  const list =
+    $("#monsterBookList");
+
+  if (!list) {
+    return;
+  }
+
+  const discovered =
+    getDiscoveredCount();
+
+  $("#monsterBookCount")
+    .textContent =
+      `${discovered} / ${MONSTERS.length}`;
+
+  list.innerHTML = "";
+
+  MONSTERS.forEach(monster => {
+    const data =
+      monsterBook[monster.id];
+
+    const card =
+      document.createElement("div");
+
+    card.className = "monster-card";
+
+    if (!data) {
+      card.classList.add("locked");
+    }
+
+    const sprite =
+      document.createElement("div");
+
+    sprite.className = "monster-sprite";
+
+    const frameA =
+      document.createElement("img");
+    const frameB =
+      document.createElement("img");
+
+    frameA.className =
+      "monster-frame monster-frame-a";
+    frameB.className =
+      "monster-frame monster-frame-b";
+
+    frameA.alt = monster.name;
+    frameB.alt = monster.name;
+
+    sprite.appendChild(frameA);
+    sprite.appendChild(frameB);
+
+    card.appendChild(sprite);
+
+    const name =
+      document.createElement("div");
+    name.className = "monster-name";
+    name.textContent =
+      data ? monster.name : "??? ????";
+    card.appendChild(name);
+
+    const meta =
+      document.createElement("div");
+    meta.className = "monster-meta";
+    meta.textContent = data
+      ? `${monster.rarity}・DEFEATED ×${data.defeated}`
+      : "UNKNOWN";
+    card.appendChild(meta);
+
+    const description =
+      document.createElement("div");
+    description.className = "monster-description";
+    description.textContent = data
+      ? monster.description
+      : "まだ遭遇していない。";
+    card.appendChild(description);
+
+    list.appendChild(card);
+
+    const frames =
+      createMonsterBookFrames(monster.type);
+
+    frameA.src = frames[0];
+    frameB.src = frames[1];
+  });
+}
+
+/*
+ * 図鑑のモンスター画像は、クエスト戦闘で使っている
+ * drawSlime / drawBat / drawMandraga ... を直接使って生成する。
+ * これで図鑑と実際のクエストのモンスター絵が完全に同じになる。
+ */
+function createMonsterBookFrames(type) {
+  if (!canvas || !ctx) {
+    return ["", ""];
+  }
+
+  const frames = [];
+  const originalImage =
+    ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  const drawPreview = time => {
+    ctx.clearRect(
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    // 背景は描かず、モンスターだけを透明PNGとして書き出す。
+    // 2枚目は少し上下に動かして、図鑑でも確実に2フレームの
+    // アイドルアニメーションになるようにする。
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+
+    if (time > 0) {
+      ctx.translate(0, 3);
+    }
+
+    if (type === "slime") {
+      drawSlime(235, 83, 1);
+    } else if (type === "bat") {
+      drawBat(235, 76, 1, time);
+    } else if (type === "mandraga") {
+      drawMandraga(235, 82, 1);
+    } else if (type === "wolf") {
+      drawWolf(235, 84, 1);
+    } else if (type === "phantom") {
+      drawPhantom(235, 78, 1);
+    } else if (type === "golem") {
+      drawGolem(235, 76, 1);
+    } else if (type === "dragon") {
+      drawDragon(235, 72, 1);
+    }
+
+    ctx.restore();
+
+    return canvas.toDataURL("image/png");
+  };
+
+  frames.push(drawPreview(0));
+  frames.push(drawPreview(120));
+
+  ctx.putImageData(
+    originalImage,
+    0,
+    0
+  );
+
+  return frames;
+}
+
+/* =========================================================
+   CALENDAR
+   ========================================================= */
+
+let calendarViewDate =
+  new Date();
+
+let calendarViewYear =
+  calendarViewDate.getFullYear();
+
+let calendarViewMonth =
+  calendarViewDate.getMonth();
+
+function renderCalendar() {
+  const grid =
+    $("#calendarGrid");
+
+  if (!grid) {
+    return;
+  }
+
+  const title =
+    $("#calendarTitle");
+
+  title.textContent =
+    `${calendarViewYear} / ` +
+    String(
+      calendarViewMonth + 1
+    ).padStart(2, "0");
+
+  grid.innerHTML = "";
+
+  const weekdays = [
+    "SUN",
+    "MON",
+    "TUE",
+    "WED",
+    "THU",
+    "FRI",
+    "SAT"
+  ];
+
+  weekdays.forEach(day => {
+    const cell =
+      document.createElement(
+        "div"
+      );
+
+    cell.className =
+      "calendar-weekday";
+
+    cell.textContent =
+      day;
+
+    grid.appendChild(cell);
+  });
+
+  const firstDay =
+    new Date(
+      calendarViewYear,
+      calendarViewMonth,
+      1
+    ).getDay();
+
+  const daysInMonth =
+    new Date(
+      calendarViewYear,
+      calendarViewMonth + 1,
+      0
+    ).getDate();
+
+  for (
+    let i = 0;
+    i < firstDay;
+    i++
+  ) {
+    const empty =
+      document.createElement(
+        "div"
+      );
+
+    empty.className =
+      "calendar-day empty";
+
+    grid.appendChild(empty);
+  }
+
+  const today =
+    getDateKey();
+
+  for (
+    let day = 1;
+    day <= daysInMonth;
+    day++
+  ) {
+    const date =
+      new Date(
+        calendarViewYear,
+        calendarViewMonth,
+        day
+      );
+
+    const key =
+      getDateKey(date);
+
+    const cell =
+      document.createElement(
+        "div"
+      );
+
+    cell.className =
+      "calendar-day";
+
+    if (
+      calendarData[key]
+    ) {
+      cell.classList.add(
+        "played"
+      );
+    }
+
+    if (key === today) {
+      cell.classList.add(
+        "today"
+      );
+    }
+
+    cell.textContent =
+      calendarData[key]
+        ? `✓ ${day}`
+        : day;
+
+    grid.appendChild(cell);
+  }
+
+  if ($("#recoveryCount")) {
+    $("#recoveryCount")
+      .textContent =
+        `RECOVERY ELIXIR ×${items.recovery}`;
+  }
+
+  if ($("#rewardMessage")) {
+    const remain =
+      7 -
+      (streak % 7);
+
+    $("#rewardMessage")
+      .textContent =
+        streak > 0 &&
+        streak % 7 === 0
+          ? "7日連続達成！報酬獲得済み！"
+          : `現在 ${streak}日連続。あと ${remain}日で報酬！`;
+  }
+}
+
+/* =========================================================
+   WORD REGISTER
+   ========================================================= */
 
 function addWord() {
-
   playButtonSound();
 
   const enInput =
@@ -1037,7 +2048,6 @@ function addWord() {
     jpInput.value.trim();
 
   if (!en || !jp) {
-
     showToast(
       "英単語と日本語の意味を入力してください。"
     );
@@ -1053,7 +2063,6 @@ function addWord() {
     );
 
   if (exists) {
-
     showToast(
       "その単語はすでに登録されています。"
     );
@@ -1077,18 +2086,19 @@ function addWord() {
   );
 }
 
-
-/* ================= WORD BOOK ================= */
+/* =========================================================
+   WORD BOOK
+   ========================================================= */
 
 function renderWordBook() {
-
   const list =
     $("#wordList");
+
+  if (!list) return;
 
   list.innerHTML = "";
 
   if (!words.length) {
-
     list.innerHTML = `
       <div class="panel">
         単語が登録されていません。
@@ -1100,17 +2110,27 @@ function renderWordBook() {
 
   words.forEach(
     (word, index) => {
-
       const item =
-        document.createElement("div");
+        document.createElement(
+          "div"
+        );
 
       item.className =
         "word-item";
 
       item.innerHTML = `
         <div>
-          <strong>${escapeHtml(word.en)}</strong>
-          <span>${escapeHtml(word.jp)}</span>
+          <strong>
+            ${escapeHtml(
+              word.en
+            )}
+          </strong>
+
+          <span>
+            ${escapeHtml(
+              word.jp
+            )}
+          </span>
         </div>
 
         <button
@@ -1129,11 +2149,9 @@ function renderWordBook() {
       ".delete-word"
     )
     .forEach(button => {
-
       button.addEventListener(
         "click",
         () => {
-
           playButtonSound();
 
           const index =
@@ -1142,7 +2160,9 @@ function renderWordBook() {
             );
 
           if (
-            !Number.isInteger(index)
+            !Number.isInteger(
+              index
+            )
           ) {
             return;
           }
@@ -1161,10 +2181,8 @@ function renderWordBook() {
     });
 }
 
-
 function escapeHtml(value) {
-
-  return value
+  return String(value)
     .replaceAll(
       "&",
       "&amp;"
@@ -1187,15 +2205,14 @@ function escapeHtml(value) {
     );
 }
 
-
-/* ================= CSV ================= */
+/* =========================================================
+   CSV
+   ========================================================= */
 
 function exportCSV() {
-
   playButtonSound();
 
   if (!words.length) {
-
     showToast(
       "登録単語がありません。"
     );
@@ -1204,7 +2221,10 @@ function exportCSV() {
   }
 
   const rows = [
-    ["English", "Japanese"],
+    [
+      "English",
+      "Japanese"
+    ],
     ...words.map(
       word => [
         word.en,
@@ -1232,7 +2252,10 @@ function exportCSV() {
 
   const blob =
     new Blob(
-      ["\uFEFF" + csv],
+      [
+        "\uFEFF" +
+        csv
+      ],
       {
         type:
           "text/csv;charset=utf-8"
@@ -1240,45 +2263,49 @@ function exportCSV() {
     );
 
   const url =
-    URL.createObjectURL(blob);
+    URL.createObjectURL(
+      blob
+    );
 
   const link =
-    document.createElement("a");
+    document.createElement(
+      "a"
+    );
 
   link.href = url;
 
   link.download =
     "pixel-english-words.csv";
 
-  document.body.appendChild(link);
+  document.body.appendChild(
+    link
+  );
 
   link.click();
 
   link.remove();
 
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(
+    url
+  );
 
   showToast(
     "CSVを書き出しました。"
   );
 }
 
-
 function importCSV(file) {
-
-  if (!file) {
-    return;
-  }
+  if (!file) return;
 
   const reader =
     new FileReader();
 
   reader.onload =
     event => {
-
       const text =
         String(
-          event.target.result || ""
+          event.target.result ||
+          ""
         )
           .replace(
             /^\uFEFF/,
@@ -1294,7 +2321,6 @@ function importCSV(file) {
           );
 
       if (lines.length < 2) {
-
         showToast(
           "CSVの内容を読み込めませんでした。"
         );
@@ -1309,19 +2335,21 @@ function importCSV(file) {
         i < lines.length;
         i++
       ) {
-
         const parts =
           parseCSVLine(
             lines[i]
           );
 
-        if (parts.length < 2) {
+        if (
+          parts.length < 2
+        ) {
           continue;
         }
 
         imported.push({
           en:
             parts[0].trim(),
+
           jp:
             parts[1].trim()
         });
@@ -1350,9 +2378,7 @@ function importCSV(file) {
   );
 }
 
-
 function parseCSVLine(line) {
-
   const result = [];
 
   let current = "";
@@ -1363,22 +2389,17 @@ function parseCSVLine(line) {
     i < line.length;
     i++
   ) {
-
     const char =
       line[i];
 
     if (char === '"') {
-
       if (
         quoted &&
         line[i + 1] === '"'
       ) {
-
         current += '"';
         i++;
-
       } else {
-
         quoted = !quoted;
       }
 
@@ -1386,12 +2407,13 @@ function parseCSVLine(line) {
       char === "," &&
       !quoted
     ) {
+      result.push(
+        current
+      );
 
-      result.push(current);
       current = "";
 
     } else {
-
       current += char;
     }
   }
@@ -1401,40 +2423,45 @@ function parseCSVLine(line) {
   return result;
 }
 
-
-/* ================= FLASHCARD ================= */
+/* =========================================================
+   FLASHCARD
+   ========================================================= */
 
 function renderFlashcard() {
-
-  if (!words.length) {
-    return;
-  }
+  if (!words.length) return;
 
   if (
-    flashIndex >= words.length
+    flashIndex >=
+    words.length
   ) {
-
     flashIndex = 0;
   }
 
   const word =
     words[flashIndex];
 
-  $("#flashEnglish").textContent =
-    word.en;
+  if ($("#flashEnglish")) {
+    $("#flashEnglish")
+      .textContent =
+        word.en;
+  }
 
-  $("#flashJapanese").textContent =
-    flashFlipped
-      ? word.jp
-      : "？？？";
+  if ($("#flashJapanese")) {
+    $("#flashJapanese")
+      .textContent =
+        flashFlipped
+          ? word.jp
+          : "？？？";
+  }
 
-  $("#flashIndex").textContent =
-    `${flashIndex + 1} / ${words.length}`;
+  if ($("#flashIndex")) {
+    $("#flashIndex")
+      .textContent =
+        `${flashIndex + 1} / ${words.length}`;
+  }
 }
 
-
 function flipFlashcard() {
-
   playButtonSound();
 
   flashFlipped =
@@ -1443,17 +2470,15 @@ function flipFlashcard() {
   renderFlashcard();
 }
 
-
 function nextCard() {
-
   playButtonSound();
 
   flashIndex++;
 
   if (
-    flashIndex >= words.length
+    flashIndex >=
+    words.length
   ) {
-
     flashIndex = 0;
   }
 
@@ -1462,15 +2487,12 @@ function nextCard() {
   renderFlashcard();
 }
 
-
 function previousCard() {
-
   playButtonSound();
 
   flashIndex--;
 
   if (flashIndex < 0) {
-
     flashIndex =
       words.length - 1;
   }
@@ -1480,25 +2502,24 @@ function previousCard() {
   renderFlashcard();
 }
 
-
 /* =========================================================
    QUEST
    ========================================================= */
 
 function shuffle(array) {
-
   const result =
     [...array];
 
   for (
-    let i = result.length - 1;
+    let i =
+      result.length - 1;
     i > 0;
     i--
   ) {
-
     const j =
       Math.floor(
-        Math.random() * (i + 1)
+        Math.random() *
+        (i + 1)
       );
 
     [
@@ -1513,11 +2534,8 @@ function shuffle(array) {
   return result;
 }
 
-
 function startQuest() {
-
   if (words.length < 10) {
-
     showToast(
       `クエストには10語以上必要です。現在 ${words.length}語です。`
     );
@@ -1525,20 +2543,19 @@ function startQuest() {
     return;
   }
 
-  /*
-    ここが音声開始の重要ポイント。
-
-    START QUESTボタンのクリックイベントから
-    直接呼ばれるので、スマホブラウザの
-    autoplay制限を突破しやすい。
-  */
-
   unlockAudio();
 
   playStartSound();
 
+  /*
+    学習日として記録。
+    クエスト開始時点でその日の学習を記録する。
+  */
+  markTodayPlayed();
+
   quizWords =
-    shuffle(words).slice(0, 10);
+    shuffle(words)
+      .slice(0, 10);
 
   currentIndex = 0;
   currentStage = 0;
@@ -1559,50 +2576,66 @@ function startQuest() {
 
   nextQuestion();
 
-  /*
-    BGMは画面切り替え後に開始。
-  */
-
   setTimeout(() => {
-
     if (
       currentScreen ===
       "quizScreen"
     ) {
-
-      startBGM();
+      startBGMForCurrentStage();
     }
-
-  }, 120);
+  }, 180);
 }
 
-
-/* ================= STAGE ================= */
+/* =========================================================
+   STAGE
+   ========================================================= */
 
 function setupStage() {
-
   const stage =
     stages[currentStage];
 
   stageHit = 0;
 
-  $("#stageBadge").textContent =
-    `STAGE ${currentStage + 1}`;
+  if ($("#stageBadge")) {
+    $("#stageBadge")
+      .textContent =
+        `STAGE ${currentStage + 1}`;
+  }
 
-  $("#enemyName").textContent =
-    stage.name;
+  if ($("#enemyName")) {
+    $("#enemyName")
+      .textContent =
+        stage.name;
+  }
 
   updateEnemyHp();
 
-  $("#battleMessage").textContent =
-    "SELECT THE CORRECT ANSWER";
+  if ($("#battleMessage")) {
+    $("#battleMessage")
+      .textContent =
+        stage.boss
+          ? "WARNING... BOSS BATTLE"
+          : "SELECT THE CORRECT ANSWER";
+  }
 
   resetBattleAnimation();
+
+  /*
+    ステージ移行時にBGMを変更。
+    ASTRAL DRAGONではボスBGM。
+  */
+
+  setTimeout(() => {
+    if (
+      currentScreen ===
+      "quizScreen"
+    ) {
+      startBGMForCurrentStage();
+    }
+  }, 50);
 }
 
-
 function updateEnemyHp() {
-
   const stage =
     stages[currentStage];
 
@@ -1611,23 +2644,25 @@ function updateEnemyHp() {
       0,
       1 -
         stageHit /
-        stage.maxHits
+          stage.maxHits
     );
 
-  $("#enemyHp").style.width =
-    `${ratio * 100}%`;
+  if ($("#enemyHp")) {
+    $("#enemyHp")
+      .style.width =
+        `${ratio * 100}%`;
+  }
 }
 
-
-/* ================= QUESTION ================= */
+/* =========================================================
+   QUESTION
+   ========================================================= */
 
 function nextQuestion() {
-
   if (
     currentIndex >=
     quizWords.length
   ) {
-
     finishQuiz();
 
     return;
@@ -1636,47 +2671,71 @@ function nextQuestion() {
   answerLocked = false;
 
   const current =
-    quizWords[currentIndex];
+    quizWords[
+      currentIndex
+    ];
 
-  $("#questionNumber").textContent =
-    String(
-      currentIndex + 1
-    ).padStart(
-      2,
-      "0"
-    );
+  if ($("#questionNumber")) {
+    $("#questionNumber")
+      .textContent =
+        String(
+          currentIndex + 1
+        ).padStart(
+          2,
+          "0"
+        );
+  }
 
-  $("#questionProgress").style.width =
-    `${(
-      currentIndex /
-      quizWords.length
-    ) * 100}%`;
+  if ($("#questionProgress")) {
+    $("#questionProgress")
+      .style.width =
+        `${
+          (
+            currentIndex /
+            quizWords.length
+          ) * 100
+        }%`;
+  }
 
-  $("#questionWord").textContent =
-    current.en;
+  if ($("#questionWord")) {
+    $("#questionWord")
+      .textContent =
+        current.en;
+  }
 
-  $("#quizScore").textContent =
-    quizScore;
+  if ($("#quizScore")) {
+    $("#quizScore")
+      .textContent =
+        quizScore;
+  }
 
-  $("#hitCount").textContent =
-    stageHit;
+  if ($("#hitCount")) {
+    $("#hitCount")
+      .textContent =
+        stageHit;
+  }
 
   const choices =
-    makeChoices(current);
+    makeChoices(
+      current
+    );
 
-  renderAnswers(choices);
+  renderAnswers(
+    choices
+  );
 
-  $("#battleMessage").textContent =
-    "SELECT THE CORRECT ANSWER";
+  if ($("#battleMessage")) {
+    $("#battleMessage")
+      .textContent =
+        "SELECT THE CORRECT ANSWER";
+  }
 
   updateEnemyHp();
 }
 
-
 function makeChoices(
   correctWord
 ) {
-
   const candidates =
     words.filter(
       word =>
@@ -1685,7 +2744,9 @@ function makeChoices(
     );
 
   const wrongChoices =
-    shuffle(candidates)
+    shuffle(
+      candidates
+    )
       .slice(0, 3)
       .map(
         word =>
@@ -1700,19 +2761,18 @@ function makeChoices(
   return shuffle(all);
 }
 
-
 function renderAnswers(
   choices
 ) {
-
   const container =
     $("#answers");
+
+  if (!container) return;
 
   container.innerHTML = "";
 
   choices.forEach(
     choice => {
-
       const button =
         document.createElement(
           "button"
@@ -1740,14 +2800,48 @@ function renderAnswers(
   );
 }
 
+/* =========================================================
+   RECOVERY ITEM
+   ========================================================= */
 
-/* ================= ANSWER ================= */
+function tryRecoveryItem() {
+  if (
+    items.recovery <= 0
+  ) {
+    return false;
+  }
+
+  const confirmed =
+    window.confirm(
+      "リカバリーエリクサーを使いますか？\n\n" +
+      "今回のMISSを無効にして、連勝を維持します。"
+    );
+
+  if (!confirmed) {
+    return false;
+  }
+
+  items.recovery--;
+
+  saveGameData();
+
+  playRewardSound();
+
+  showToast(
+    "リカバリーエリクサーを使用した！"
+  );
+
+  return true;
+}
+
+/* =========================================================
+   ANSWER
+   ========================================================= */
 
 function handleAnswer(
   selected,
   clickedButton
 ) {
-
   if (answerLocked) {
     return;
   }
@@ -1759,19 +2853,18 @@ function handleAnswer(
     return;
   }
 
-  /*
-    ボタンを押した瞬間の音。
-  */
-
   playButtonSound();
 
   answerLocked = true;
 
   const current =
-    quizWords[currentIndex];
+    quizWords[
+      currentIndex
+    ];
 
   const isCorrect =
-    selected === current.jp;
+    selected ===
+    current.jp;
 
   const buttons =
     document.querySelectorAll(
@@ -1780,14 +2873,13 @@ function handleAnswer(
 
   buttons.forEach(
     button => {
-
-      button.disabled = true;
+      button.disabled =
+        true;
 
       if (
         button.textContent ===
         current.jp
       ) {
-
         button.classList.add(
           "correct"
         );
@@ -1795,10 +2887,45 @@ function handleAnswer(
     }
   );
 
-
-  /* ===== WRONG ===== */
+  /* =======================================================
+     WRONG
+     ======================================================= */
 
   if (!isCorrect) {
+    /*
+      まずリカバリーアイテムを確認。
+      アイテムを使った場合はMISS扱いにしない。
+    */
+
+    if (
+      tryRecoveryItem()
+    ) {
+      clickedButton.classList.add(
+        "correct"
+      );
+
+      $("#battleMessage")
+        .textContent =
+          "RECOVERED!";
+
+      currentIndex++;
+
+      saveStats();
+      renderStats();
+
+      setTimeout(() => {
+        if (
+          currentIndex >=
+          quizWords.length
+        ) {
+          finishQuiz();
+        } else {
+          nextQuestion();
+        }
+      }, 850);
+
+      return;
+    }
 
     playWrongSound();
 
@@ -1808,8 +2935,11 @@ function handleAnswer(
 
     streak = 0;
 
-    $("#battleMessage").textContent =
-      `MISS!  正解：${current.jp}`;
+    if ($("#battleMessage")) {
+      $("#battleMessage")
+        .textContent =
+          `MISS!  正解：${current.jp}`;
+    }
 
     currentIndex++;
 
@@ -1817,65 +2947,57 @@ function handleAnswer(
     renderStats();
 
     setTimeout(() => {
-
       if (
         currentIndex >=
         quizWords.length
       ) {
-
         finishQuiz();
-
       } else {
-
         nextQuestion();
       }
-
     }, 850);
 
     return;
   }
 
-
-  /* ===== CORRECT ===== */
+  /* =======================================================
+     CORRECT
+     ======================================================= */
 
   playCorrectSound();
 
   correctCount++;
+  totalCorrect++;
 
   quizScore += 100;
-
   streak++;
-
   stageHit++;
 
-  $("#quizScore").textContent =
-    quizScore;
+  if ($("#quizScore")) {
+    $("#quizScore")
+      .textContent =
+        quizScore;
+  }
 
-  $("#hitCount").textContent =
-    stageHit;
+  if ($("#hitCount")) {
+    $("#hitCount")
+      .textContent =
+        stageHit;
+  }
 
-  $("#battleMessage").textContent =
-    "HIT!";
-
-
-  /*
-    正解してから少し遅れて
-    剣の音 → ヒット音。
-    演出と音を合わせる。
-  */
+  if ($("#battleMessage")) {
+    $("#battleMessage")
+      .textContent =
+        "HIT!";
+  }
 
   setTimeout(() => {
-
     playSwordSound();
-
   }, 80);
 
   setTimeout(() => {
-
     playHitSound();
-
   }, 230);
-
 
   startAttackAnimation();
 
@@ -1883,13 +3005,15 @@ function handleAnswer(
 
   updateEnemyHp();
 
-  setTimeout(() => {
+  saveStats();
+  saveGameData();
 
+  setTimeout(() => {
     if (
       stageHit >=
-      stages[currentStage].maxHits
+      stages[currentStage]
+        .maxHits
     ) {
-
       defeatCurrentEnemy();
 
       return;
@@ -1899,46 +3023,53 @@ function handleAnswer(
       currentIndex >=
       quizWords.length
     ) {
-
       finishQuiz();
 
       return;
     }
 
     nextQuestion();
-
   }, 850);
 }
 
-
-/* ================= ENEMY DEFEAT ================= */
+/* =========================================================
+   ENEMY DEFEAT
+   ========================================================= */
 
 function defeatCurrentEnemy() {
-
   const defeatedStage =
     currentStage;
 
-  /*
-    撃破音は敵が消える瞬間。
-  */
+  const stage =
+    stages[
+      defeatedStage
+    ];
 
   playDefeatSound();
 
-  $("#battleMessage").textContent =
-    defeatedStage ===
-    stages.length - 1
-      ? "ASTRAL DRAGON DEFEATED!"
-      : `${stages[defeatedStage].name} DEFEATED!`;
+  /*
+    図鑑登録
+  */
+
+  registerMonster(
+    stage.monsterId
+  );
+
+  if ($("#battleMessage")) {
+    $("#battleMessage")
+      .textContent =
+        stage.boss
+          ? "ASTRAL DRAGON DEFEATED!"
+          : `${stage.name} DEFEATED!`;
+  }
 
   startDefeatAnimation();
 
   setTimeout(() => {
-
     if (
       currentIndex >=
       quizWords.length
     ) {
-
       finishQuiz();
 
       return;
@@ -1948,7 +3079,6 @@ function defeatCurrentEnemy() {
       defeatedStage >=
       stages.length - 1
     ) {
-
       finishQuiz();
 
       return;
@@ -1959,59 +3089,71 @@ function defeatCurrentEnemy() {
     setupStage();
 
     nextQuestion();
-
   }, 1200);
 }
 
-
-/* ================= RESULT ================= */
+/* =========================================================
+   RESULT
+   ========================================================= */
 
 function finishQuiz() {
-
   answerLocked = true;
 
   stopBGM();
 
-  /*
-    リザルト音。
-  */
-
   playResultSound();
 
-  $("#questionProgress").style.width =
-    "100%";
+  if (
+    $("#questionProgress")
+  ) {
+    $("#questionProgress")
+      .style.width =
+        "100%";
+  }
 
   if (
-    quizScore > bestScore
+    quizScore >
+    bestScore
   ) {
-
     bestScore =
       quizScore;
   }
 
   saveStats();
+  saveGameData();
 
   renderStats();
 
-  $("#resultScore").textContent =
-    quizScore;
+  if ($("#resultScore")) {
+    $("#resultScore")
+      .textContent =
+        quizScore;
+  }
 
-  $("#resultCorrect").textContent =
-    `${correctCount} / 10`;
+  if ($("#resultCorrect")) {
+    $("#resultCorrect")
+      .textContent =
+        `${correctCount} / 10`;
+  }
 
-  $("#resultBest").textContent =
-    bestScore;
+  if ($("#resultBest")) {
+    $("#resultBest")
+      .textContent =
+        bestScore;
+  }
 
-  $("#resultTitle").textContent =
-    correctCount === 10
-      ? "PERFECT CLEAR"
-      : "QUEST COMPLETE";
+  if ($("#resultTitle")) {
+    $("#resultTitle")
+      .textContent =
+        correctCount === 10
+          ? "PERFECT CLEAR"
+          : "QUEST COMPLETE";
+  }
 
   showScreen(
     "resultScreen"
   );
 }
-
 
 /* =========================================================
    BATTLE CANVAS
@@ -2021,49 +3163,45 @@ const canvas =
   $("#battleCanvas");
 
 const ctx =
-  canvas.getContext("2d");
+  canvas
+    ? canvas.getContext("2d")
+    : null;
 
-ctx.imageSmoothingEnabled =
-  false;
-
+if (ctx) {
+  ctx.imageSmoothingEnabled =
+    false;
+}
 
 function resetBattleAnimation() {
-
   battleState.attack = 0;
-
   battleState.flashUntil = 0;
-
   battleState.damageUntil = 0;
-
   battleState.defeat = 0;
-
   battleState.particles = [];
 
-  if (!animationId) {
-
+  if (
+    !animationId
+  ) {
     animationLoop();
   }
 }
 
-
 function startAttackAnimation() {
-
   battleState.attack = 1;
 
   battleState.flashUntil =
-    performance.now() + 180;
+    performance.now() +
+    180;
 
   battleState.damageUntil =
-    performance.now() + 650;
+    performance.now() +
+    650;
 
   battleState.damageX = 235;
-
   battleState.damageY = 64;
 }
 
-
 function startDefeatAnimation() {
-
   battleState.defeat = 1;
 
   spawnParticles(
@@ -2073,13 +3211,11 @@ function startDefeatAnimation() {
   );
 }
 
-
 function spawnParticles(
   x,
   y,
   count
 ) {
-
   const colors = [
     "#f0b76a",
     "#d66c93",
@@ -2093,9 +3229,7 @@ function spawnParticles(
     i < count;
     i++
   ) {
-
     battleState.particles.push({
-
       x,
       y,
 
@@ -2121,19 +3255,32 @@ function spawnParticles(
         colors[
           Math.floor(
             Math.random() *
-              colors.length
+            colors.length
           )
         ]
     });
   }
 }
 
-
 function animationLoop(
-  time = performance.now()
+  time =
+    performance.now()
 ) {
+  // 攻撃中は毎フレーム進行させる。
+  // これがないと attack が 1 のまま固定され、
+  // drawHero() の swordPhase が常に 0 になって
+  // 剣が振り下ろされない。
+  if (battleState.attack > 0) {
+    battleState.attack =
+      Math.max(
+        0,
+        battleState.attack - 0.055
+      );
+  }
 
-  drawBattle(time);
+  if (ctx) {
+    drawBattle(time);
+  }
 
   animationId =
     requestAnimationFrame(
@@ -2141,8 +3288,9 @@ function animationLoop(
     );
 }
 
-
-/* ================= PIXEL HELPERS ================= */
+/* =========================================================
+   PIXEL HELPERS
+   ========================================================= */
 
 function rect(
   x,
@@ -2151,8 +3299,10 @@ function rect(
   h,
   color
 ) {
+  if (!ctx) return;
 
-  ctx.fillStyle = color;
+  ctx.fillStyle =
+    color;
 
   ctx.fillRect(
     Math.round(x),
@@ -2162,7 +3312,6 @@ function rect(
   );
 }
 
-
 function pixelText(
   text,
   x,
@@ -2171,6 +3320,7 @@ function pixelText(
   color = "#ffffff",
   align = "left"
 ) {
+  if (!ctx) return;
 
   ctx.save();
 
@@ -2204,10 +3354,14 @@ function pixelText(
   ctx.restore();
 }
 
-
-/* ================= BATTLE DRAW ================= */
+/* =========================================================
+   BATTLE DRAW
+   ========================================================= */
 
 function drawBattle(time) {
+  if (!ctx || !canvas) {
+    return;
+  }
 
   const w =
     canvas.width;
@@ -2282,18 +3436,15 @@ function drawBattle(time) {
     x < w;
     x += 8
   ) {
-
     for (
       let y = 95;
       y < 132;
       y += 8
     ) {
-
       if (
         (x + y) % 16 ===
         0
       ) {
-
         rect(
           x,
           y,
@@ -2362,7 +3513,6 @@ function drawBattle(time) {
     x < w;
     x += 16
   ) {
-
     rect(
       x,
       140 +
@@ -2374,21 +3524,13 @@ function drawBattle(time) {
     );
   }
 
-  /* HERO */
-
   drawHero(time);
 
-  /* ENEMY */
-
   drawEnemy(time);
-
-  /* EFFECTS */
 
   drawParticles();
 
   drawDamage(time);
-
-  /* HUD */
 
   pixelText(
     "QUEST BATTLE",
@@ -2406,20 +3548,46 @@ function drawBattle(time) {
     "#ffffff",
     "right"
   );
+
+  /*
+    ボス時のWARNING表示
+  */
+
+  if (
+    stages[currentStage] &&
+    stages[currentStage].boss
+  ) {
+    pixelText(
+      "BOSS",
+      160,
+      24,
+      8,
+      "#f2c36f",
+      "center"
+    );
+  }
 }
 
-
-/* ================= HERO ================= */
+/* =========================================================
+   HERO
+   ========================================================= */
 
 function drawHero(time) {
-
   const attack =
     battleState.attack;
+
+  // 戦闘中の待機アニメーションは2フレーム。
+  // 約0.28秒ごとに上下へ2px動かして、
+  // プレイヤー自身も常時「2枚絵」で動いて見えるようにする。
+  const idleFrame =
+    Math.floor(time / 280) % 2;
+
+  const idleBob =
+    idleFrame === 0 ? 0 : 2;
 
   let swordPhase = 0;
 
   if (attack > 0) {
-
     const elapsed =
       1 - attack;
 
@@ -2431,7 +3599,7 @@ function drawHero(time) {
   }
 
   const x = 58;
-  const y = 83;
+  const y = 83 + idleBob;
 
   /* SHADOW */
 
@@ -2629,8 +3797,6 @@ function drawHero(time) {
     "#262530"
   );
 
-  /* SWORD */
-
   drawSword(
     x + 24,
     y + 13,
@@ -2638,20 +3804,19 @@ function drawHero(time) {
   );
 }
 
-
-/* ================= SWORD ================= */
+/* =========================================================
+   SWORD
+   ========================================================= */
 
 function drawSword(
   handX,
   handY,
   phase
 ) {
-
   let tipX;
   let tipY;
 
   if (phase <= 0) {
-
     tipX =
       handX + 29;
 
@@ -2659,7 +3824,6 @@ function drawSword(
       handY - 27;
 
   } else if (phase < .45) {
-
     const t =
       phase / .45;
 
@@ -2674,7 +3838,6 @@ function drawSword(
       t * 11;
 
   } else {
-
     const t =
       (phase - .45) /
       .55;
@@ -2797,7 +3960,6 @@ function drawSword(
   /* ATTACK ARC */
 
   if (phase > .1) {
-
     const alpha =
       Math.max(
         0,
@@ -2833,13 +3995,24 @@ function drawSword(
   }
 }
 
-
-/* ================= ENEMY ================= */
+/* =========================================================
+   ENEMY
+   ========================================================= */
 
 function drawEnemy(time) {
-
   const stage =
     stages[currentStage];
+
+  // モンスターも2フレームの待機モーション。
+  // 0.28秒ごとに上下へ2px移動して、
+  // START QUEST中も常にアニメーションする。
+  const idleFrame =
+    Math.floor(time / 280) % 2;
+
+  const idleBob =
+    idleFrame === 0 ? 0 : 2;
+
+  if (!stage) return;
 
   let alpha = 1;
   let scale = 1;
@@ -2847,7 +4020,6 @@ function drawEnemy(time) {
   if (
     battleState.defeat > 0
   ) {
-
     const elapsed =
       1 -
       battleState.defeat;
@@ -2872,10 +4044,9 @@ function drawEnemy(time) {
     stage.type ===
     "slime"
   ) {
-
     drawSlime(
       235,
-      83,
+      83 + idleBob,
       scale
     );
   }
@@ -2884,10 +4055,9 @@ function drawEnemy(time) {
     stage.type ===
     "bat"
   ) {
-
     drawBat(
       235,
-      76,
+      76 + idleBob,
       scale,
       time
     );
@@ -2897,10 +4067,58 @@ function drawEnemy(time) {
     stage.type ===
     "dragon"
   ) {
-
     drawDragon(
       235,
-      72,
+      72 + idleBob,
+      scale
+    );
+  }
+
+  /*
+    追加モンスター
+    今後のステージ追加用
+  */
+
+  if (
+    stage.type ===
+    "mandraga"
+  ) {
+    drawMandraga(
+      235,
+      82 + idleBob,
+      scale
+    );
+  }
+
+  if (
+    stage.type ===
+    "wolf"
+  ) {
+    drawWolf(
+      235,
+      84 + idleBob,
+      scale
+    );
+  }
+
+  if (
+    stage.type ===
+    "phantom"
+  ) {
+    drawPhantom(
+      235,
+      78 + idleBob,
+      scale
+    );
+  }
+
+  if (
+    stage.type ===
+    "golem"
+  ) {
+    drawGolem(
+      235,
+      76 + idleBob,
       scale
     );
   }
@@ -2913,7 +4131,6 @@ function drawEnemy(time) {
     battleState.flashUntil >
     performance.now()
   ) {
-
     ctx.save();
 
     ctx.globalAlpha =
@@ -2931,18 +4148,21 @@ function drawEnemy(time) {
   }
 }
 
-
-/* ================= SLIME ================= */
+/* =========================================================
+   SLIME
+   ========================================================= */
 
 function drawSlime(
   x,
   y,
   scale
 ) {
-
   ctx.save();
 
-  ctx.translate(x, y);
+  ctx.translate(
+    x,
+    y
+  );
 
   ctx.scale(
     scale,
@@ -3064,8 +4284,9 @@ function drawSlime(
   ctx.restore();
 }
 
-
-/* ================= BAT ================= */
+/* =========================================================
+   BAT
+   ========================================================= */
 
 function drawBat(
   x,
@@ -3073,10 +4294,12 @@ function drawBat(
   scale,
   time
 ) {
-
   ctx.save();
 
-  ctx.translate(x, y);
+  ctx.translate(
+    x,
+    y
+  );
 
   ctx.scale(
     scale,
@@ -3084,8 +4307,9 @@ function drawBat(
   );
 
   const flap =
-    Math.sin(time / 100) *
-    4;
+    Math.sin(
+      time / 100
+    ) * 4;
 
   rect(
     -25,
@@ -3210,18 +4434,337 @@ function drawBat(
   ctx.restore();
 }
 
+/* =========================================================
+   EXTRA MONSTERS
+   ========================================================= */
 
-/* ================= DRAGON ================= */
+function drawMandraga(
+  x,
+  y,
+  scale
+) {
+  ctx.save();
+
+  ctx.translate(
+    x,
+    y
+  );
+
+  ctx.scale(
+    scale,
+    scale
+  );
+
+  rect(
+    -25,
+    35,
+    50,
+    5,
+    "#202337"
+  );
+
+  rect(
+    -18,
+    -25,
+    36,
+    58,
+    "#4d674d"
+  );
+
+  rect(
+    -28,
+    -10,
+    56,
+    28,
+    "#5d7c56"
+  );
+
+  rect(
+    -10,
+    -35,
+    8,
+    18,
+    "#78925d"
+  );
+
+  rect(
+    2,
+    -38,
+    8,
+    20,
+    "#78925d"
+  );
+
+  rect(
+    -13,
+    -3,
+    7,
+    9,
+    "#252738"
+  );
+
+  rect(
+    6,
+    -3,
+    7,
+    9,
+    "#252738"
+  );
+
+  rect(
+    -8,
+    11,
+    18,
+    4,
+    "#312c35"
+  );
+
+  ctx.restore();
+}
+
+function drawWolf(
+  x,
+  y,
+  scale
+) {
+  ctx.save();
+
+  ctx.translate(
+    x,
+    y
+  );
+
+  ctx.scale(
+    scale,
+    scale
+  );
+
+  rect(
+    -35,
+    32,
+    70,
+    5,
+    "#202337"
+  );
+
+  rect(
+    -28,
+    -10,
+    48,
+    38,
+    "#4c5369"
+  );
+
+  rect(
+    -20,
+    -27,
+    32,
+    25,
+    "#5d647b"
+  );
+
+  rect(
+    -24,
+    -36,
+    10,
+    18,
+    "#383e54"
+  );
+
+  rect(
+    4,
+    -36,
+    10,
+    18,
+    "#383e54"
+  );
+
+  rect(
+    -14,
+    -15,
+    6,
+    7,
+    "#e0b66e"
+  );
+
+  rect(
+    5,
+    -15,
+    6,
+    7,
+    "#e0b66e"
+  );
+
+  rect(
+    -5,
+    2,
+    10,
+    5,
+    "#282938"
+  );
+
+  ctx.restore();
+}
+
+function drawPhantom(
+  x,
+  y,
+  scale
+) {
+  ctx.save();
+
+  ctx.translate(
+    x,
+    y
+  );
+
+  ctx.scale(
+    scale,
+    scale
+  );
+
+  rect(
+    -27,
+    35,
+    54,
+    5,
+    "#202337"
+  );
+
+  rect(
+    -23,
+    -30,
+    46,
+    60,
+    "#69628d"
+  );
+
+  rect(
+    -29,
+    -12,
+    58,
+    30,
+    "#756b9a"
+  );
+
+  rect(
+    -15,
+    -20,
+    8,
+    10,
+    "#e7d79e"
+  );
+
+  rect(
+    7,
+    -20,
+    8,
+    10,
+    "#e7d79e"
+  );
+
+  rect(
+    -11,
+    5,
+    22,
+    4,
+    "#312b40"
+  );
+
+  ctx.restore();
+}
+
+function drawGolem(
+  x,
+  y,
+  scale
+) {
+  ctx.save();
+
+  ctx.translate(
+    x,
+    y
+  );
+
+  ctx.scale(
+    scale,
+    scale
+  );
+
+  rect(
+    -35,
+    42,
+    70,
+    6,
+    "#202337"
+  );
+
+  rect(
+    -28,
+    -30,
+    56,
+    72,
+    "#626777"
+  );
+
+  rect(
+    -35,
+    -10,
+    70,
+    40,
+    "#727787"
+  );
+
+  rect(
+    -20,
+    -45,
+    40,
+    20,
+    "#515563"
+  );
+
+  rect(
+    -15,
+    -10,
+    8,
+    8,
+    "#d69a61"
+  );
+
+  rect(
+    7,
+    -10,
+    8,
+    8,
+    "#d69a61"
+  );
+
+  rect(
+    -10,
+    10,
+    20,
+    5,
+    "#363947"
+  );
+
+  ctx.restore();
+}
+
+/* =========================================================
+   DRAGON
+   ========================================================= */
 
 function drawDragon(
   x,
   y,
   scale
 ) {
-
   ctx.save();
 
-  ctx.translate(x, y);
+  ctx.translate(
+    x,
+    y
+  );
 
   ctx.scale(
     scale,
@@ -3463,11 +5006,11 @@ function drawDragon(
   ctx.restore();
 }
 
-
-/* ================= PARTICLES ================= */
+/* =========================================================
+   PARTICLES
+   ========================================================= */
 
 function drawParticles() {
-
   const particles =
     battleState.particles;
 
@@ -3477,7 +5020,6 @@ function drawParticles() {
     i >= 0;
     i--
   ) {
-
     const p =
       particles[i];
 
@@ -3485,8 +5027,6 @@ function drawParticles() {
     p.y += p.vy;
 
     p.vy += .08;
-
-    p.life--;
 
     ctx.globalAlpha =
       Math.max(
@@ -3502,10 +5042,11 @@ function drawParticles() {
       p.color
     );
 
+    p.life--;
+
     if (
       p.life <= 0
     ) {
-
       particles.splice(
         i,
         1
@@ -3516,16 +5057,15 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
-
-/* ================= DAMAGE ================= */
+/* =========================================================
+   DAMAGE
+   ========================================================= */
 
 function drawDamage(time) {
-
   if (
     battleState.damageUntil <
     time
   ) {
-
     return;
   }
 
@@ -3561,13 +5101,11 @@ function drawDamage(time) {
   ctx.restore();
 }
 
-
 /* =========================================================
    SCORE RESET
    ========================================================= */
 
 function resetScore() {
-
   playButtonSound();
 
   const confirmed =
@@ -3592,16 +5130,23 @@ function resetScore() {
   );
 }
 
-
-/* ================= EVENTS ================= */
+/* =========================================================
+   EVENTS
+   ========================================================= */
 
 document.addEventListener(
   "DOMContentLoaded",
   () => {
-
     loadData();
 
     renderStats();
+
+    /*
+      追加画面を生成
+    */
+
+    createExtraScreens();
+    createExtraNavigation();
 
     /* navigation */
 
@@ -3610,18 +5155,15 @@ document.addEventListener(
         "[data-screen]"
       )
       .forEach(button => {
-
         button.addEventListener(
           "click",
           () => {
-
             playButtonSound();
 
             if (
               button.dataset.screen ===
               "homeScreen"
             ) {
-
               answerLocked = true;
             }
 
@@ -3632,142 +5174,149 @@ document.addEventListener(
         );
       });
 
-
     /* word */
 
-    $("#addWordBtn")
-      .addEventListener(
-        "click",
-        addWord
-      );
+    if ($("#addWordBtn")) {
+      $("#addWordBtn")
+        .addEventListener(
+          "click",
+          addWord
+        );
+    }
 
-
-    $("#englishInput")
-      .addEventListener(
-        "keydown",
-        event => {
-
-          if (
-            event.key ===
-            "Enter"
-          ) {
-
-            addWord();
+    if ($("#englishInput")) {
+      $("#englishInput")
+        .addEventListener(
+          "keydown",
+          event => {
+            if (
+              event.key ===
+              "Enter"
+            ) {
+              addWord();
+            }
           }
-        }
-      );
+        );
+    }
 
-
-    $("#japaneseInput")
-      .addEventListener(
-        "keydown",
-        event => {
-
-          if (
-            event.key ===
-            "Enter"
-          ) {
-
-            addWord();
+    if ($("#japaneseInput")) {
+      $("#japaneseInput")
+        .addEventListener(
+          "keydown",
+          event => {
+            if (
+              event.key ===
+              "Enter"
+            ) {
+              addWord();
+            }
           }
-        }
-      );
-
+        );
+    }
 
     /* quest */
 
-    $("#startQuestBtn")
-      .addEventListener(
-        "click",
-        startQuest
-      );
-
+    if ($("#startQuestBtn")) {
+      $("#startQuestBtn")
+        .addEventListener(
+          "click",
+          startQuest
+        );
+    }
 
     /* score */
 
-    $("#resetScoreBtn")
-      .addEventListener(
-        "click",
-        resetScore
-      );
-
+    if ($("#resetScoreBtn")) {
+      $("#resetScoreBtn")
+        .addEventListener(
+          "click",
+          resetScore
+        );
+    }
 
     /* flashcard */
 
-    $("#flashcard")
-      .addEventListener(
-        "click",
-        flipFlashcard
-      );
+    if ($("#flashcard")) {
+      $("#flashcard")
+        .addEventListener(
+          "click",
+          flipFlashcard
+        );
+    }
 
+    if ($("#nextCardBtn")) {
+      $("#nextCardBtn")
+        .addEventListener(
+          "click",
+          nextCard
+        );
+    }
 
-    $("#nextCardBtn")
-      .addEventListener(
-        "click",
-        nextCard
-      );
-
-
-    $("#prevCardBtn")
-      .addEventListener(
-        "click",
-        previousCard
-      );
-
+    if ($("#prevCardBtn")) {
+      $("#prevCardBtn")
+        .addEventListener(
+          "click",
+          previousCard
+        );
+    }
 
     /* CSV */
 
-    $("#exportCsvBtn")
-      .addEventListener(
-        "click",
-        exportCSV
-      );
+    if ($("#exportCsvBtn")) {
+      $("#exportCsvBtn")
+        .addEventListener(
+          "click",
+          exportCSV
+        );
+    }
 
+    if ($("#importCsvBtn")) {
+      $("#importCsvBtn")
+        .addEventListener(
+          "click",
+          () => {
+            playButtonSound();
 
-    $("#importCsvBtn")
-      .addEventListener(
-        "click",
-        () => {
+            $("#csvFileInput")
+              .click();
+          }
+        );
+    }
 
-          playButtonSound();
+    if ($("#csvFileInput")) {
+      $("#csvFileInput")
+        .addEventListener(
+          "change",
+          event => {
+            const file =
+              event.target
+                .files[0];
 
-          $("#csvFileInput").click();
-        }
-      );
+            importCSV(file);
 
-
-    $("#csvFileInput")
-      .addEventListener(
-        "change",
-        event => {
-
-          const file =
-            event.target.files[0];
-
-          importCSV(file);
-
-          event.target.value = "";
-        }
-      );
-
+            event.target.value =
+              "";
+          }
+        );
+    }
 
     /* result */
 
-    $("#resultHomeBtn")
-      .addEventListener(
-        "click",
-        () => {
+    if ($("#resultHomeBtn")) {
+      $("#resultHomeBtn")
+        .addEventListener(
+          "click",
+          () => {
+            playButtonSound();
 
-          playButtonSound();
+            answerLocked = true;
 
-          answerLocked = true;
-
-          showScreen(
-            "homeScreen"
-          );
-        }
-      );
-
+            showScreen(
+              "homeScreen"
+            );
+          }
+        );
+    }
 
     /* start canvas */
 
