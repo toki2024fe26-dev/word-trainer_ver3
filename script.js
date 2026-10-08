@@ -691,6 +691,30 @@ const MONSTERS = [
     boss: false
   },
   {
+    id: "coral-shrimp",
+    name: "CORAL SHRIMP",
+    type: "shrimp",
+    description: "珊瑚礁を跳ね回る鋭いハサミの海老モンスター。",
+    rarity: "COMMON",
+    boss: false
+  },
+  {
+    id: "tidal-fish",
+    name: "TIDAL FISH",
+    type: "fish",
+    description: "潮の流れを操る青い魚モンスター。鋭い歯に注意。",
+    rarity: "UNCOMMON",
+    boss: false
+  },
+  {
+    id: "poseidon",
+    name: "POSEIDON",
+    type: "poseidon",
+    description: "海を統べる黄金の王。三叉槍から荒波を呼び起こす。",
+    rarity: "BOSS",
+    boss: true
+  },
+  {
     id: "shadow-bat",
     name: "SHADOW BAT",
     type: "bat",
@@ -770,7 +794,7 @@ function registerMonsterEncounter(monsterId) {
 const stages = [
   { id:"grassland", name:"GRASSLAND", jp:"草原", theme:"grassland", description:"風に揺れる草原。旅の始まりとなる最初のエリア。", enemies:["moon-slime","night-wolf"], boss:"astral-dragon" },
   { id:"forest", name:"FOREST", jp:"森林", theme:"forest", description:"深い森の奥へ。木々の間から古代の魔物が姿を現す。", enemies:["forest-mandraga","shadow-bat"], boss:"astral-dragon" },
-  { id:"beach", name:"BEACH", jp:"砂浜", theme:"beach", description:"青い海と白い砂浜。潮騒の向こうに魔物が潜む。", enemies:["shadow-bat","moon-slime"], boss:"astral-dragon" },
+  { id:"beach", name:"BEACH", jp:"砂浜", theme:"beach", description:"青い海と白い砂浜。潮騒の向こうに海の魔物が潜む。", enemies:["coral-shrimp","tidal-fish"], boss:"poseidon" },
   { id:"volcano", name:"VOLCANO", jp:"火山", theme:"volcano", description:"灼熱の大地。溶岩が流れる火口へ進め。", enemies:["night-wolf","iron-golem"], boss:"astral-dragon" },
   { id:"snowfield", name:"SNOWFIELD", jp:"雪原", theme:"snowfield", description:"吹雪に閉ざされた白銀の世界。亡霊の気配が漂う。", enemies:["phantom","night-wolf"], boss:"astral-dragon" },
   { id:"ruins", name:"ANCIENT RUINS", jp:"遺跡", theme:"ruins", description:"世界の秘密が眠る古代遺跡。最後の魔王との決戦の地。", enemies:["iron-golem","phantom"], boss:"void-emperor", final:true }
@@ -1376,10 +1400,15 @@ function createExtraScreens() {
     .monster-card { padding:12px; background:rgba(255,255,255,.76); border:1px solid #ddd7e3; box-shadow:0 6px 14px rgba(52,42,75,.06); }
     .monster-card.locked { filter:saturate(.15); opacity:.62; }
     .monster-sprite { position:relative; height:145px; margin-bottom:8px; overflow:hidden; background:radial-gradient(circle at center, rgba(111,94,153,.12), transparent 65%); border:1px solid #e1dce6; }
-    .monster-frame { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; opacity:0; animation:monsterBookIdle .56s steps(1,end) infinite; }
-    .monster-frame-a { animation-delay:0s; }
-    .monster-frame-b { animation-delay:.28s; }
-    @keyframes monsterBookIdle { 0%,49.99%{opacity:1} 50%,100%{opacity:0} }
+    .monster-frame { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; opacity:0; animation:monsterBookIdle .72s steps(1,end) infinite; }
+    .monster-frame-1 { animation-delay:0s; }
+    .monster-frame-2 { animation-delay:.18s; }
+    .monster-frame-3 { animation-delay:.36s; }
+    .monster-frame-4 { animation-delay:.54s; }
+    @keyframes monsterBookIdle {
+      0%,24.99%{opacity:1}
+      25%,100%{opacity:0}
+    }
     .monster-name { font-weight:800; letter-spacing:.07em; color:#393452; margin-bottom:5px; }
     .monster-meta { color:#8a8492; font-size:10px; letter-spacing:.05em; margin-bottom:7px; }
     .monster-description { color:#706a79; font-size:11px; line-height:1.6; min-height:35px; }
@@ -1503,7 +1532,7 @@ function renderStageSelect() {
     const second = MONSTERS.find(m => m.id === stage.enemies[1]);
     const boss = MONSTERS.find(m => m.id === stage.boss);
     const stateClass = cleared ? "cleared" : (unlocked ? "unlocked" : "locked");
-    const buttonLabel = cleared ? "REPLAY" : (unlocked ? "START" : "LOCKED");
+    const buttonLabel = cleared ? "RETRY" : (unlocked ? "START" : "LOCKED");
 
     return `<article class="stage-select-card ${stateClass}${stage.final ? " final-stage" : ""}">
       <div class="stage-art stage-art-${stage.theme}" aria-hidden="true">
@@ -1623,21 +1652,13 @@ function renderMonsterBook() {
 
     sprite.className = "monster-sprite";
 
-    const frameA =
-      document.createElement("img");
-    const frameB =
-      document.createElement("img");
-
-    frameA.className =
-      "monster-frame monster-frame-a";
-    frameB.className =
-      "monster-frame monster-frame-b";
-
-    frameA.alt = monster.name;
-    frameB.alt = monster.name;
-
-    sprite.appendChild(frameA);
-    sprite.appendChild(frameB);
+    const frameEls = [0, 1, 2, 3].map(frameIndex => {
+      const frame = document.createElement("img");
+      frame.className = `monster-frame monster-frame-${frameIndex + 1}`;
+      frame.alt = monster.name;
+      sprite.appendChild(frame);
+      return frame;
+    });
 
     card.appendChild(sprite);
 
@@ -1669,8 +1690,9 @@ function renderMonsterBook() {
     const frames =
       createMonsterBookFrames(monster.type, monster);
 
-    frameA.src = frames[0];
-    frameB.src = frames[1];
+    frameEls.forEach((frame, index) => {
+      frame.src = frames[index] || frames[0];
+    });
   });
 }
 
@@ -1681,7 +1703,7 @@ function renderMonsterBook() {
  */
 function createMonsterBookFrames(type, monsterMeta = {}) {
   if (!canvas || !ctx) {
-    return ["", ""];
+    return ["", "", "", ""];
   }
 
   const previewCanvas = document.createElement("canvas");
@@ -1693,43 +1715,58 @@ function createMonsterBookFrames(type, monsterMeta = {}) {
   const previousCtx = ctx;
   const previousActiveStages = activeStages;
   const previousCurrentStage = currentStage;
+  const previousSelectedStageIndex = selectedStageIndex;
   const previousFlashUntil = battleState.flashUntil;
+  const previousDefeat = battleState.defeat;
+  const previousAttack = battleState.attack;
 
-  // Use exactly the same stage payload the battle renderer expects.
-  activeStages = [{
+  const previewStage = {
     id: monsterMeta.id || type,
     type,
     boss: !!monsterMeta.boss,
-    finalBoss: monsterMeta.id === "void-emperor"
-  }];
-  currentStage = 0;
-  battleState.flashUntil = 0;
-  ctx = previewCtx;
+    finalBoss: monsterMeta.id === "void-emperor",
+    monsterId: monsterMeta.id || type
+  };
 
   const frames = [];
 
-  const renderFrame = time => {
-    previewCtx.setTransform(1, 0, 0, 1, 0, 0);
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    previewCtx.save();
-    previewCtx.setTransform(BATTLE_RENDER_SCALE, 0, 0, BATTLE_RENDER_SCALE, 0, 0);
+  try {
+    /*
+      Encyclopedia previews must never leave the live battle renderer
+      pointing at the preview canvas or at a temporary one-monster stage.
+      A try/finally here makes the hand-off safe even when a future monster
+      drawing routine throws an exception.
+    */
+    activeStages = [previewStage];
+    currentStage = 0;
+    battleState.flashUntil = 0;
+    battleState.defeat = 0;
+    battleState.attack = 0;
+    ctx = previewCtx;
 
-    /* This is intentionally the same enemy drawing order used in battle:
-       base body → coherent lighting → no independent offset layer. */
-    drawEnemy(time);
-    drawEnemyLightingPass(time);
+    const renderFrame = time => {
+      previewCtx.setTransform(1, 0, 0, 1, 0, 0);
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewCtx.save();
+      previewCtx.setTransform(BATTLE_RENDER_SCALE, 0, 0, BATTLE_RENDER_SCALE, 0, 0);
+      drawEnemy(time);
+      drawEnemyLightingPass(time);
+  drawEnemyUltraFineDetails(time);
+      previewCtx.restore();
+      return previewCanvas.toDataURL("image/png");
+    };
 
-    previewCtx.restore();
-    return previewCanvas.toDataURL("image/png");
-  };
-
-  frames.push(renderFrame(0));
-  frames.push(renderFrame(300));
-
-  ctx = previousCtx;
-  activeStages = previousActiveStages;
-  currentStage = previousCurrentStage;
-  battleState.flashUntil = previousFlashUntil;
+    /* Battle idle animation is 4 frames × 180ms. */
+    [0, 180, 360, 540].forEach(time => frames.push(renderFrame(time)));
+  } finally {
+    ctx = previousCtx;
+    activeStages = previousActiveStages;
+    currentStage = previousCurrentStage;
+    selectedStageIndex = previousSelectedStageIndex;
+    battleState.flashUntil = previousFlashUntil;
+    battleState.defeat = previousDefeat;
+    battleState.attack = previousAttack;
+  }
 
   return frames;
 }
@@ -3404,6 +3441,14 @@ if (canvas) {
   if (backgroundCtx) backgroundCtx.imageSmoothingEnabled = false;
 }
 
+function getIdleFrame(time) {
+  return Math.floor(time / 180) % 4;
+}
+
+function getIdleBob(frame) {
+  return [0, 1, 2, 1][frame] || 0;
+}
+
 function resetBattleAnimation() {
   battleState.attack = 0;
   battleState.flashUntil = 0;
@@ -3979,6 +4024,7 @@ function drawStageBackground(theme, time, w, h) {
   // 背景の細密ピクセルディテール。キャラクターの背後にのみ描画し、
   // セレクト画面のような「小さい情報の積み重ね」を増やす。
   drawStageFineDetails(theme, time, w, h);
+  drawStageUltraFinePixels(theme, time, w, h);
 
   // ステージ名は既存HUDの一部として残す。
   pixelText(theme === "ruins" ? "ANCIENT RUINS" : theme.toUpperCase(), 9, 10, 7, "#ffffff");
@@ -3986,6 +4032,36 @@ function drawStageBackground(theme, time, w, h) {
 /* =========================================================
    STAGE FINE PIXEL DETAILS
    ========================================================= */
+
+/* =========================================================
+   ULTRA-FINE STAGE PIXEL DETAIL
+   ========================================================= */
+function drawStageUltraFinePixels(theme, time, w, h) {
+  if (!ctx) return;
+  ctx.save();
+  ctx.globalAlpha = 0.34;
+  const seed = [
+    [11, 118], [22, 135], [34, 151], [48, 126], [61, 159], [74, 140],
+    [89, 115], [103, 145], [117, 161], [132, 128], [145, 153], [160, 137],
+    [176, 121], [190, 158], [205, 142], [219, 127], [233, 151], [248, 137],
+    [263, 160], [277, 119], [291, 145], [305, 156]
+  ];
+  const palette = {
+    grassland: ['#dfe8a5','#b9d58a','#9bc6d6'],
+    forest: ['#9acb85','#75a97b','#9fc8b4'],
+    beach: ['#dff4eb','#b6dfe0','#e0c98b'],
+    volcano: ['#c96b52','#9a4f47','#d68b58'],
+    snowfield: ['#e7f5f8','#c7dfe7','#a7d8df'],
+    ruins: ['#bca8d8','#8799c2','#d0b8df']
+  };
+  const colors = palette[theme] || palette.grassland;
+  seed.forEach(([x,y], i) => {
+    const drift = Math.round(Math.sin(time / 1300 + i) * 0.5);
+    rect(x + drift, y, 1, 1, colors[i % colors.length]);
+    if (i % 4 === 0) rect(x + 2 + drift, y + 2, 1, 1, colors[(i + 1) % colors.length]);
+  });
+  ctx.restore();
+}
 
 function drawStageFineDetails(theme, time, w, h) {
   if (!ctx) return;
@@ -4133,9 +4209,14 @@ function drawStageFineDetails(theme, time, w, h) {
 
 function drawHero(time) {
   const attack = battleState.attack;
+  const idleFrame = getIdleFrame(time);
 
-  const idleFrame = Math.floor(time / 280) % 2;
-  const idleBob = idleFrame === 0 ? 0 : 2;
+  /*
+    2.5〜3頭身くらいのデフォルメ勇者。
+    足元は完全固定、肩〜頭だけ4フレームで呼吸する。
+  */
+  const breath = [0, -1, 0, 1][idleFrame];
+  const capeSwing = [0, 1, 2, 1][idleFrame];
 
   let swordPhase = 0;
   if (attack > 0) {
@@ -4149,112 +4230,413 @@ function drawHero(time) {
     : 0;
 
   const x = 58 + damageShake;
-  const y = 83 + idleBob;
+  const y = 83 + damageShake;
+  const upperY = y + breath;
 
   /* =========================
-     HERO — GOLDEN KNIGHT
+     GROUND SHADOW — 固定
      ========================= */
-
-  /* ground shadow */
   ctx.save();
-  ctx.globalAlpha = .26;
-  rect(x - 20, y + 48, 13, 2, "#171725");
-  rect(x - 7, y + 50, 18, 2, "#171725");
+  ctx.globalAlpha = .28;
+  rect(x - 21, y + 48, 10, 2, "#171725");
+  rect(x - 10, y + 50, 20, 2, "#171725");
   rect(x + 11, y + 48, 12, 2, "#171725");
   ctx.restore();
 
-  /* flowing cape */
-  rect(x - 17, y - 7, 25, 32, "#30426f");
-  rect(x - 14, y - 10, 18, 5, "#516da0");
-  rect(x - 18, y + 13, 6, 12, "#25375f");
-  rect(x - 14, y + 18, 5, 8, "#3b5386");
-  rect(x + 5, y + 17, 4, 9, "#26385f");
-  rect(x - 15, y + 24, 6, 2, "#6b83b1");
+  /* =========================
+     CAPE — 上半身に追従
+     ========================= */
+  rect(x - 19 - capeSwing, upperY + 1, 25, 31, "#263a70");
+  rect(x - 16 - capeSwing, upperY - 4, 19, 7, "#5570ad");
+  rect(x - 20 - capeSwing, upperY + 9, 8, 17, "#1c2d58");
+  rect(x - 16 - capeSwing, upperY + 17, 8, 11, "#3d5a96");
+  rect(x - 12 - capeSwing, upperY + 27, 10, 4, "#6880b8");
+  rect(x - 8 - capeSwing, upperY + 29, 8, 4, "#1b2a50");
 
-  /* golden hair — shadow / mid / highlight */
-  rect(x - 9, y - 22, 22, 18, "#8f6427");
-  rect(x - 6, y - 26, 18, 9, "#c8953e");
-  rect(x - 2, y - 27, 12, 4, "#e8c36b");
-  rect(x + 10, y - 20, 7, 12, "#a8732f");
-  rect(x - 10, y - 15, 5, 9, "#c38d35");
-  rect(x - 8, y - 20, 7, 3, "#f0d17d");
-  rect(x + 12, y - 15, 4, 7, "#765023");
+  /* =========================
+     GOLDEN HAIR — 大きめの頭部
+     ========================= */
+  // 後ろ髪
+  rect(x - 18, upperY - 19, 25, 22, "#895c21");
+  rect(x - 21, upperY - 13, 10, 20, "#b47b28");
+  rect(x + 4, upperY - 12, 9, 19, "#744b20");
+  rect(x - 24, upperY - 7, 7, 13, "#a96f24");
+  rect(x + 8, upperY - 5, 6, 12, "#68421e");
 
-  /* crown */
-  rect(x - 7, y - 31, 18, 4, "#8f6925");
-  rect(x - 5, y - 35, 4, 6, "#d7ae4d");
-  rect(x + 1, y - 38, 4, 9, "#f0cf68");
-  rect(x + 7, y - 35, 4, 6, "#d7ae4d");
-  rect(x - 3, y - 33, 13, 2, "#f7db78");
-  rect(x + 1, y - 32, 4, 2, "#6f88c2");
+  // 頭頂の金髪
+  rect(x - 16, upperY - 25, 22, 10, "#c58e35");
+  rect(x - 11, upperY - 29, 13, 6, "#e6ba57");
+  rect(x - 7, upperY - 30, 10, 4, "#f2d074");
+  rect(x - 15, upperY - 20, 8, 4, "#f0cd6e");
+  rect(x - 9, upperY - 14, 8, 3, "#dca548");
+  rect(x + 1, upperY - 19, 6, 3, "#9f6c26");
 
-  /* face */
-  rect(x - 2, y - 14, 17, 17, "#c98266");
-  rect(x + 1, y - 14, 14, 14, "#edb28d");
-  rect(x + 12, y - 9, 4, 7, "#c98169");
-  rect(x + 4, y - 7, 3, 2, "#2b2530");
-  rect(x + 12, y - 7, 3, 2, "#2b2530");
-  rect(x + 5, y - 8, 1, 1, "#ffffff");
-  rect(x + 13, y - 8, 1, 1, "#ffffff");
-  rect(x + 8, y - 3, 4, 2, "#bf705e");
-  rect(x + 3, y + 1, 10, 2, "#e7a17f");
+  /* 前髪 — 顔を囲む */
+  rect(x - 14, upperY - 17, 7, 7, "#d7a242");
+  rect(x - 9, upperY - 19, 6, 9, "#edc261");
+  rect(x - 3, upperY - 17, 7, 6, "#c58a31");
+  rect(x + 3, upperY - 16, 6, 8, "#a97027");
 
-  /* collar */
-  rect(x + 2, y + 2, 12, 7, "#5d6475");
-  rect(x + 5, y + 2, 6, 4, "#d8dce1");
+  /* =========================
+     CROWN — 髪に密着
+     ========================= */
+  rect(x - 8, upperY - 30, 17, 3, "#9a6a22");
+  rect(x - 7, upperY - 34, 4, 6, "#d7ad4f");
+  rect(x - 1, upperY - 37, 4, 9, "#f0d06c");
+  rect(x + 5, upperY - 34, 4, 6, "#d3a548");
+  rect(x - 6, upperY - 29, 14, 2, "#ffe391");
+  rect(x - 1, upperY - 30, 4, 2, "#7ca7ec");
 
-  /* arm / gauntlet */
-  rect(x + 11, y + 7, 14, 8, "#69717f");
-  rect(x + 14, y + 6, 9, 3, "#aeb5c0");
-  rect(x + 21, y + 10, 8, 7, "#d0d4d7");
-  rect(x + 23, y + 10, 5, 3, "#eef1f2");
+  /* =========================
+     FACE — 大きなアニメ目
+     ========================= */
+  rect(x - 10, upperY - 16, 22, 17, "#bc7354");
+  rect(x - 7, upperY - 18, 19, 18, "#efb18e");
+  rect(x + 8, upperY - 13, 7, 9, "#c77d61");
+  rect(x - 5, upperY - 17, 14, 3, "#f4c29c");
+  rect(x - 6, upperY - 14, 7, 2, "#8c564c");
+  rect(x + 5, upperY - 14, 7, 2, "#8c564c");
 
-  /* armor torso — silver three-tone */
-  rect(x - 8, y + 7, 27, 25, "#3c4351");
-  rect(x - 5, y + 6, 22, 24, "#858d99");
-  rect(x - 2, y + 8, 14, 18, "#b8bec6");
-  rect(x + 9, y + 9, 7, 17, "#69717d");
+  // 左右の大きな目。黒→紺→白ハイライトの3段階。
+  rect(x - 8, upperY - 12, 7, 8, "#252343");
+  rect(x + 4, upperY - 12, 7, 8, "#252343");
+  rect(x - 6, upperY - 10, 4, 5, "#4f6aa9");
+  rect(x + 6, upperY - 10, 4, 5, "#4f6aa9");
+  rect(x - 5, upperY - 10, 2, 2, "#ffffff");
+  rect(x + 7, upperY - 10, 2, 2, "#ffffff");
+  rect(x - 3, upperY - 6, 2, 1, "#d78378");
+  rect(x + 7, upperY - 6, 2, 1, "#d78378");
 
-  /* chest crest */
-  rect(x + 3, y + 8, 7, 4, "#dce1e6");
-  rect(x + 5, y + 12, 5, 8, "#4f69a1");
-  rect(x + 4, y + 12, 2, 5, "#f4f5f5");
-  rect(x + 5, y + 18, 4, 3, "#35508a");
+  // 小さな鼻と口
+  rect(x + 1, upperY - 5, 2, 2, "#be765f");
+  rect(x - 1, upperY - 1, 7, 2, "#a95f62");
+  rect(x, upperY - 1, 4, 1, "#f09b91");
 
-  /* armor seams / pauldrons */
-  rect(x - 10, y + 8, 5, 8, "#606876");
-  rect(x - 11, y + 7, 5, 4, "#9ea6b2");
-  rect(x + 15, y + 7, 6, 7, "#5d6572");
-  rect(x + 16, y + 6, 5, 3, "#b8bec8");
+  /* =========================
+     NECK / COLLAR
+     ========================= */
+  rect(x + 1, upperY, 10, 7, "#a06a51");
+  rect(x + 1, upperY + 2, 12, 6, "#5d687a");
+  rect(x + 4, upperY + 2, 6, 3, "#f0f2f4");
+  rect(x + 6, upperY + 4, 3, 3, "#4a6dab");
 
-  /* belt + gold buckle */
-  rect(x - 7, y + 26, 26, 6, "#343946");
-  rect(x + 3, y + 26, 7, 6, "#c39443");
-  rect(x + 5, y + 27, 3, 3, "#f1d37d");
+  /* =========================
+     SHOULDER ARMOR
+     ========================= */
+  rect(x - 12, upperY + 6, 9, 9, "#566273");
+  rect(x - 11, upperY + 5, 8, 4, "#d8dde2");
+  rect(x + 12, upperY + 6, 10, 9, "#4e5869");
+  rect(x + 13, upperY + 5, 8, 4, "#e0e4e8");
+  rect(x - 14, upperY + 11, 5, 5, "#7f8997");
+  rect(x + 20, upperY + 11, 5, 5, "#707a8a");
 
-  /* legs / greaves */
-  rect(x - 5, y + 32, 10, 15, "#4c5360");
-  rect(x + 8, y + 32, 10, 15, "#3e4552");
-  rect(x - 4, y + 32, 4, 11, "#a7adb5");
-  rect(x + 9, y + 32, 4, 11, "#737b87");
-  rect(x - 7, y + 44, 13, 7, "#323743");
-  rect(x + 7, y + 44, 14, 7, "#2a2f3a");
-  rect(x - 5, y + 44, 7, 2, "#b7bec7");
-  rect(x + 8, y + 44, 7, 2, "#7f8895");
+  /* =========================
+     CUIRASS — 女性勇者らしいシルエット
+     ========================= */
+  rect(x - 8, upperY + 7, 26, 25, "#333b49");
+  rect(x - 5, upperY + 7, 22, 22, "#838c98");
+  rect(x - 2, upperY + 8, 16, 18, "#d4d8dc");
+  rect(x + 11, upperY + 9, 6, 16, "#6d7785");
+  rect(x + 1, upperY + 7, 13, 3, "#f4f5f5");
+  rect(x + 7, upperY + 10, 2, 14, "#939ca7");
 
-  /* left-hand mini shield — intentionally secondary */
-  rect(x - 20, y + 7, 8, 14, "#445477");
-  rect(x - 18, y + 9, 5, 9, "#768eb9");
-  rect(x - 18, y + 10, 5, 2, "#c6cedc");
-  rect(x - 17, y + 12, 3, 5, "#3b5b9d");
-  rect(x - 20, y + 18, 8, 3, "#29344e");
+  // 胸元の青い宝石
+  rect(x + 3, upperY + 11, 9, 8, "#345fa5");
+  rect(x + 5, upperY + 10, 5, 2, "#99c4f4");
+  rect(x + 5, upperY + 12, 5, 4, "#5f8bc9");
+  rect(x + 6, upperY + 13, 3, 2, "#d8f2ff");
 
-  /* Sword: keep the existing design and attack motion unchanged. */
-  drawSword(
-    x + 24,
-    y + 13,
-    swordPhase
-  );
+  /* 腕とガントレット */
+  rect(x + 16, upperY + 8, 10, 9, "#6c7685");
+  rect(x + 17, upperY + 7, 8, 3, "#edf0f2");
+  rect(x + 23, upperY + 11, 8, 7, "#c2c8d0");
+  rect(x + 25, upperY + 10, 4, 3, "#ffffff");
+  rect(x + 21, upperY + 16, 9, 4, "#525d6d");
+
+  /* =========================
+     WAIST / SHORT SKIRT ARMOR
+     ========================= */
+  rect(x - 7, upperY + 28, 25, 6, "#353c49");
+  rect(x - 2, upperY + 33, 9, 8, "#657080");
+  rect(x + 7, upperY + 33, 11, 8, "#535e6e");
+  rect(x - 5, upperY + 34, 8, 5, "#bfc6ce");
+  rect(x + 9, upperY + 34, 6, 5, "#8d97a3");
+  rect(x + 3, upperY + 27, 8, 8, "#cda34f");
+  rect(x + 5, upperY + 28, 4, 3, "#f5dc82");
+
+  /* =========================
+     LEGS / BOOTS — 完全固定
+     ========================= */
+  rect(x - 4, y + 40, 9, 10, "#4b5362");
+  rect(x + 8, y + 40, 10, 10, "#3d4654");
+  rect(x - 3, y + 40, 4, 8, "#c4cad1");
+  rect(x + 9, y + 40, 4, 8, "#8993a0");
+  rect(x - 7, y + 48, 13, 6, "#2b3340");
+  rect(x + 7, y + 48, 15, 6, "#242b38");
+  rect(x - 5, y + 48, 7, 2, "#d4dae0");
+  rect(x + 9, y + 48, 7, 2, "#a0a9b4");
+  rect(x - 9, y + 53, 15, 3, "#1d2430");
+  rect(x + 7, y + 53, 17, 3, "#1a202b");
+
+  /* =========================
+     SHIELD — 上半身に追従
+     ========================= */
+  rect(x - 18, upperY + 8, 9, 13, "#4e5c7c");
+  rect(x - 19, upperY + 9, 8, 4, "#93a8cd");
+  rect(x - 18, upperY + 13, 6, 8, "#6480af");
+  rect(x - 17, upperY + 13, 4, 4, "#edf5ff");
+  rect(x - 21, upperY + 19, 11, 3, "#293652");
+
+  /* Sword: デザインと攻撃モーションはそのまま。 */
+  drawSword(x + 24, upperY + 13, swordPhase);
+}
+/* =========================================================
+   HERO — 1.5頭身・モンスター側を向くアニメ風リビルド
+   ========================================================= */
+function drawHero(time) {
+  const attack = battleState.attack;
+  const idleFrame = getIdleFrame(time);
+
+  // 足は固定。肩〜頭だけが4フレームでゆっくり呼吸する。
+  const breath = [0, -1, 0, 1][idleFrame];
+  const capeSwing = [0, 1, 1, 0][idleFrame];
+
+  let swordPhase = 0;
+  if (attack > 0) {
+    const elapsed = 1 - attack;
+    swordPhase = Math.min(1, elapsed * 1.9);
+  }
+
+  const damageActive = battleState.playerDamageUntil > time;
+  const damageShake = damageActive
+    ? (Math.floor((battleState.playerDamageUntil - time) / 45) % 2 === 0 ? -2 : 2)
+    : 0;
+
+  const x = 58 + damageShake;
+  const y = 94 + damageShake;
+  const upperY = y + breath;
+
+  /* =========================
+     GROUND SHADOW — 固定
+     ========================= */
+  ctx.save();
+  ctx.globalAlpha = .30;
+  rect(x - 18, y + 39, 8, 2, '#171725');
+  rect(x - 10, y + 41, 20, 2, '#171725');
+  rect(x + 10, y + 39, 8, 2, '#171725');
+  ctx.restore();
+
+  /*
+     上半身だけをモンスター側（右）へしっかり向ける。
+     顔も別レイヤーで同じ方向へ向け、正面顔感を減らす。
+  */
+  ctx.save();
+  ctx.translate(x + 2, upperY + 16);
+  ctx.rotate(-0.055);
+  ctx.translate(-(x + 2), -(upperY + 16));
+
+  /* =========================
+     CAPE — 顔に絶対かからない後方レイヤー
+     ========================= */
+  rect(x - 19 - capeSwing, upperY + 10, 16, 25, '#233664');
+  rect(x - 17 - capeSwing, upperY + 6, 13, 6, '#5672b0');
+  rect(x - 20 - capeSwing, upperY + 16, 5, 13, '#182850');
+  rect(x - 16 - capeSwing, upperY + 24, 7, 8, '#3b5892');
+  rect(x - 13 - capeSwing, upperY + 31, 7, 4, '#6881b7');
+  // マントの先端は後頭部より下に限定して、顔周りへ侵入させない。
+  rect(x - 7 - capeSwing, upperY + 32, 6, 4, '#1c2b50');
+
+  /* =========================
+     LONG GOLDEN HAIR — 少し長め
+     ========================= */
+  // 後ろ髪の大きな楕円シルエット
+  rect(x - 18, upperY - 30, 36, 4, '#70451c');
+  rect(x - 23, upperY - 27, 46, 8, '#87541f');
+  rect(x - 26, upperY - 20, 52, 17, '#9b6220');
+  rect(x - 27, upperY - 10, 54, 18, '#8a551d');
+  rect(x - 24, upperY + 2, 48, 16, '#75491a');
+
+  // 左右の長い毛束（肩まで）
+  rect(x - 25, upperY - 4, 7, 24, '#b47529');
+  rect(x - 23, upperY + 8, 6, 18, '#8a551d');
+  rect(x + 18, upperY - 3, 7, 25, '#8b561e');
+  rect(x + 20, upperY + 9, 6, 16, '#684219');
+
+  // 金髪3階調
+  rect(x - 18, upperY - 27, 35, 7, '#d9a543');
+  rect(x - 20, upperY - 21, 41, 10, '#dfad4b');
+  rect(x - 20, upperY - 13, 41, 10, '#c68b34');
+  rect(x - 18, upperY - 5, 39, 10, '#aa6e27');
+  rect(x - 15, upperY - 25, 14, 4, '#f2d27c');
+  rect(x - 10, upperY - 19, 11, 3, '#f7dc91');
+  rect(x + 7, upperY - 14, 10, 3, '#b9782a');
+  rect(x - 23, upperY + 2, 4, 9, '#c0812e');
+  rect(x + 20, upperY + 3, 4, 10, '#73461b');
+
+  /* =========================
+     CROWN — 頭頂に密着 / 少し大きめにして勇者感を強調
+     ========================= */
+  rect(x - 7, upperY - 30, 21, 3, '#704719');
+  rect(x - 6, upperY - 34, 4, 7, '#d6aa46');
+  rect(x - 1, upperY - 37, 4, 10, '#f6d674');
+  rect(x + 5, upperY - 35, 4, 8, '#e0b24f');
+  rect(x + 10, upperY - 33, 4, 6, '#c7963e');
+  rect(x - 5, upperY - 29, 19, 2, '#ffeaa5');
+  rect(x - 1, upperY - 30, 4, 2, '#72a7ef');
+  rect(x + 6, upperY - 31, 3, 2, '#fff2b8');
+  rect(x - 3, upperY - 36, 2, 2, '#fff3be');
+
+  /* =========================
+     FACE — 水平を保った3/4向きの楕円顔
+     ========================= */
+  const fx = x + 5;
+
+  // 顔は回転させず水平をキープ。輪郭だけ左右非対称にして3/4感を出す。
+  rect(fx - 17, upperY - 9, 33, 3, '#bd9188');
+  rect(fx - 19, upperY - 6, 37, 8, '#efd1c7');
+  rect(fx - 18, upperY + 2, 39, 10, '#f7e3da');
+  rect(fx - 13, upperY + 12, 33, 5, '#efd1c7');
+  rect(fx - 8, upperY + 17, 24, 3, '#bd9188');
+
+  // モンスター側（右）を少し広くして、正面顔を弱める。
+  rect(fx - 16, upperY + 1, 5, 5, '#fff2ea');
+  rect(fx + 13, upperY + 1, 7, 5, '#fff4ee');
+  rect(fx - 17, upperY + 8, 3, 2, '#f2b6ad');
+  rect(fx + 17, upperY + 8, 4, 3, '#e5a198');
+
+  /* =========================
+     MODERN ANIME EYES — 3/4 perspective
+     ========================= */
+  // 上まぶた：両目とも少し下げつつ、モンスター側（右）をわずかに大きく。
+  rect(fx - 16, upperY - 1, 14, 3, '#423056');
+  rect(fx + 3, upperY - 1, 15, 3, '#423056');
+  rect(fx - 18, upperY + 1, 3, 4, '#4b345d');
+  rect(fx + 17, upperY + 1, 3, 4, '#4b345d');
+
+  // 外枠：向かって左の目を少し小さく、右目を少し大きくして遠近感。
+  rect(fx - 16, upperY + 1, 14, 14, '#332b57');
+  rect(fx + 2, upperY + 1, 17, 14, '#332b57');
+
+  // 下側の線だけ肌色に戻して、眼鏡のフレームのように見えないようにする。
+  // 上まぶたと左右の輪郭は残し、目の下は顔になじませる。
+  rect(fx - 16, upperY + 13, 14, 2, '#f7e3da');
+  rect(fx + 2, upperY + 13, 17, 2, '#f7e3da');
+
+  // 白目：輪郭に沿って1〜2pxだけ残す、柔らかいアイボリー。
+  rect(fx - 14, upperY + 3, 11, 10, '#fff8ef');
+  rect(fx + 4, upperY + 3, 13, 10, '#fff8ef');
+  rect(fx - 15, upperY + 5, 1, 6, '#fffdf7');
+  rect(fx + 3, upperY + 5, 1, 6, '#fffdf7');
+
+  // 虹彩：3階調＋少し大きめ。
+  rect(fx - 13, upperY + 3, 9, 10, '#6f84df');
+  rect(fx + 5, upperY + 3, 11, 10, '#6f84df');
+  rect(fx - 12, upperY + 4, 7, 6, '#a8baf8');
+  rect(fx + 6, upperY + 4, 8, 6, '#a8baf8');
+  rect(fx - 11, upperY + 10, 7, 3, '#586bc3');
+  rect(fx + 7, upperY + 10, 8, 3, '#586bc3');
+
+  // 瞳孔：中央に存在感のある黒い1ドット核＋2pxの縦芯。
+  rect(fx - 10, upperY + 7, 3, 3, '#202039');
+  rect(fx + 8, upperY + 7, 3, 3, '#202039');
+  rect(fx - 9, upperY + 6, 1, 1, '#171729');
+  rect(fx + 9, upperY + 6, 1, 1, '#171729');
+
+  // ハイライト：大きいハイライトを向かって左下、小さい対角ハイライトを右上。
+  rect(fx - 14, upperY + 10, 3, 3, '#ffffff');
+  rect(fx - 5, upperY + 4, 2, 2, '#ffffff');
+  rect(fx + 4, upperY + 10, 3, 3, '#ffffff');
+  rect(fx + 13, upperY + 4, 2, 2, '#ffffff');
+
+  // まつ毛
+  rect(fx - 19, upperY + 1, 4, 2, '#443057');
+  rect(fx + 17, upperY + 1, 4, 2, '#443057');
+
+  // 口・鼻は描かず、目と顔の輪郭だけで表情を作る。
+
+  /* =========================
+     NECK / COLLAR
+     ========================= */
+  rect(fx - 2, upperY + 17, 8, 5, '#d2a198');
+  rect(fx - 5, upperY + 20, 14, 5, '#eef1f4');
+  rect(fx + 0, upperY + 20, 5, 3, '#5576b8');
+
+  /* =========================
+     ARMOR
+     ========================= */
+  rect(fx - 13, upperY + 23, 9, 7, '#606b7b');
+  rect(fx - 12, upperY + 22, 7, 3, '#e4e8eb');
+  rect(fx + 7, upperY + 23, 9, 7, '#566172');
+  rect(fx + 8, upperY + 22, 7, 3, '#f1f3f4');
+
+  rect(fx - 7, upperY + 23, 17, 15, '#414a59');
+  rect(fx - 5, upperY + 23, 15, 13, '#b6bdc5');
+  rect(fx - 2, upperY + 24, 11, 10, '#e4e7ea');
+  rect(fx + 6, upperY + 24, 4, 10, '#7b8592');
+  rect(fx - 1, upperY + 23, 9, 2, '#ffffff');
+
+  // 胸宝石
+  rect(fx, upperY + 27, 7, 7, '#345ea8');
+  rect(fx + 1, upperY + 26, 4, 2, '#b4dcff');
+  rect(fx + 1, upperY + 29, 5, 3, '#6c9bdd');
+  rect(fx + 2, upperY + 29, 2, 2, '#effaff');
+
+  // 小さな腕・手
+  rect(fx + 9, upperY + 26, 7, 7, '#7d8794');
+  rect(fx + 10, upperY + 25, 5, 3, '#f6f8f9');
+  rect(fx + 15, upperY + 30, 5, 5, '#f3d4ca');
+  rect(fx + 17, upperY + 31, 3, 3, '#d7aaa1');
+
+  /* =========================
+     BELT / SKIRT ARMOR
+     ========================= */
+  rect(fx - 7, upperY + 37, 16, 4, '#343d4a');
+  rect(fx - 1, upperY + 37, 6, 4, '#d4ae59');
+  rect(fx, upperY + 38, 4, 2, '#f6de8b');
+  rect(fx - 5, upperY + 41, 7, 5, '#c8ced4');
+  rect(fx + 3, upperY + 41, 8, 5, '#6b7684');
+
+  /* SHIELD — 3/4向きに右へ寄せて奥行きを出す */
+  rect(fx - 19, upperY + 25, 8, 10, '#526283');
+  rect(fx - 20, upperY + 26, 7, 3, '#a6bad9');
+  rect(fx - 19, upperY + 29, 6, 6, '#6f8ab7');
+  rect(fx - 18, upperY + 29, 3, 3, '#f0f7ff');
+
+  /* 細部：髪・王冠・鎧・宝石・マント */
+  rect(x - 20, upperY - 18, 2, 1, '#f6d98d');
+  rect(x - 16, upperY - 14, 1, 4, '#f8df9b');
+  rect(x - 11, upperY - 10, 2, 1, '#e9ba61');
+  rect(x + 10, upperY - 14, 1, 4, '#d9a243');
+  rect(x + 18, upperY - 4, 1, 5, '#9b6424');
+  rect(x - 4, upperY - 33, 1, 3, '#fff4bd');
+  rect(x + 1, upperY - 35, 1, 3, '#fff8ce');
+  rect(x + 8, upperY - 32, 1, 2, '#f8df91');
+  rect(fx - 11, upperY - 6, 1, 1, '#dce7ff');
+  rect(fx + 14, upperY - 6, 1, 1, '#dce7ff');
+  rect(fx - 15, upperY + 10, 1, 1, '#f6c1bc');
+  rect(fx + 16, upperY + 10, 1, 1, '#edada8');
+  rect(fx - 4, upperY + 27, 1, 7, '#f7f8fa');
+  rect(fx + 8, upperY + 25, 1, 8, '#a7b0bb');
+  rect(fx + 1, upperY + 28, 1, 2, '#ffffff');
+  rect(fx - 18 - capeSwing, upperY + 17, 1, 9, '#6b86bd');
+  rect(fx - 13 - capeSwing, upperY + 24, 1, 7, '#4d6ba7');
+
+  // 剣は従来のデザイン・動きを維持
+  drawSword(fx + 17, upperY + 29, swordPhase);
+
+  ctx.restore();
+
+  /* =========================
+     TINY LEGS / BOOTS — 完全固定
+     ========================= */
+  rect(x - 4, y + 43, 6, 7, '#5f6977');
+  rect(x + 4, y + 43, 7, 7, '#485260');
+  rect(x - 2, y + 43, 3, 4, '#dfe3e6');
+  rect(x + 5, y + 43, 3, 4, '#9aa4af');
+  rect(x - 7, y + 49, 10, 4, '#2c3440');
+  rect(x + 3, y + 49, 11, 4, '#252d38');
+  rect(x - 5, y + 49, 5, 1, '#d7dce1');
+  rect(x + 5, y + 49, 5, 1, '#abb4bf');
 }
 
 /* =========================================================
@@ -4275,8 +4657,8 @@ function drawEnemyMicroDetails(time) {
   const stage = activeStages[currentStage];
   if (!stage) return;
 
-  const idleFrame = Math.floor(time / 280) % 2;
-  const idleBob = idleFrame === 0 ? 0 : 2;
+  const idleFrame = getIdleFrame(time);
+  const idleBob = getIdleBob(idleFrame);
   const type = stage.type;
   let x = 235;
   let y = 82 + idleBob;
@@ -4287,6 +4669,9 @@ function drawEnemyMicroDetails(time) {
   if (type === "wolf") y = 84 + idleBob;
   if (type === "phantom") y = 78 + idleBob;
   if (type === "golem") y = 76 + idleBob;
+  if (type === "shrimp") y = 82 + idleBob;
+  if (type === "fish") y = 78 + idleBob;
+  if (type === "poseidon") { y = 68 + idleBob; scale = 1.06; }
 
   ctx.save();
   ctx.translate(x, y);
@@ -4396,8 +4781,8 @@ function drawEnemyFineDetails(time) {
   const stage = activeStages[currentStage];
   if (!stage) return;
 
-  const idleFrame = Math.floor(time / 280) % 2;
-  const idleBob = idleFrame === 0 ? 0 : 2;
+  const idleFrame = getIdleFrame(time);
+  const idleBob = getIdleBob(idleFrame);
   const type = stage.type;
 
   let x = 235;
@@ -4408,6 +4793,9 @@ function drawEnemyFineDetails(time) {
   if (type === "wolf") y = 84 + idleBob;
   if (type === "phantom") y = 78 + idleBob;
   if (type === "golem") y = 76 + idleBob;
+  if (type === "shrimp") y = 82 + idleBob;
+  if (type === "fish") y = 78 + idleBob;
+  if (type === "poseidon") { y = 68 + idleBob; scale = 1.06; }
 
   ctx.save();
   ctx.translate(x, y);
@@ -4499,13 +4887,49 @@ function drawEnemyFineDetails(time) {
 /* =========================================================
    MONSTER LIGHTING — consistent top-left light / bottom-right shadow
    ========================================================= */
+function drawEnemyUltraFineDetails(time) {
+  if (!ctx) return;
+  const stage = activeStages[currentStage];
+  if (!stage) return;
+  const type = stage.type;
+  const frame = getIdleFrame(time);
+  const bob = getIdleBob(frame);
+  let x = 235;
+  let y = 82 + bob;
+  if (type === 'bat') y = 76 + bob;
+  if (type === 'dragon') y = 72 + bob;
+  if (type === 'wolf') y = 84 + bob;
+  if (type === 'phantom') y = 78 + bob;
+  if (type === 'golem') y = 76 + bob;
+  if (type === 'shrimp') y = 82 + bob;
+  if (type === 'fish') y = 78 + bob;
+  if (type === 'poseidon') y = 68 + bob;
+  ctx.save();
+  const tiny = {
+    slime: ['#f9ecf7','#a16da0','#6b456f'], bat:['#a79ab6','#665b82','#40365c'],
+    mandraga:['#bed58f','#76985d','#40583d'], wolf:['#b6bcc6','#6f7686','#3e4558'],
+    phantom:['#c9c1df','#857ea4','#514b72'], golem:['#c7cad0','#7d838e','#4f5562'],
+    shrimp:['#ffd49d','#ff8e67','#9c3b45'], fish:['#c9f4f1','#64ccd7','#236d87'],
+    poseidon:['#d7fbf4','#65d2de','#1b5d7b'], dragon:['#c3afd2','#7b6895','#493b61']
+  }[type];
+  if (!tiny) { ctx.restore(); return; }
+  ctx.translate(x, y);
+  rect(-18, -14, 1, 1, tiny[0]);
+  rect(-11, -19, 1, 1, tiny[0]);
+  rect(10, -10, 1, 1, tiny[1]);
+  rect(15, 3, 1, 1, tiny[2]);
+  rect(-8, 17, 1, 1, tiny[2]);
+  rect(6, 11, 1, 1, tiny[1]);
+  ctx.restore();
+}
+
 function drawEnemyLightingPass(time) {
   if (!ctx) return;
   const stage = activeStages[currentStage];
   if (!stage) return;
 
   const type = stage.type;
-  const idleBob = (Math.floor(time / 280) % 2) === 0 ? 0 : 2;
+  const idleBob = getIdleBob(getIdleFrame(time));
   let x = 235;
   let y = 82 + idleBob;
   let scale = 1;
@@ -4514,6 +4938,9 @@ function drawEnemyLightingPass(time) {
   if (type === "wolf") y = 84 + idleBob;
   if (type === "phantom") y = 78 + idleBob;
   if (type === "golem") y = 76 + idleBob;
+  if (type === "shrimp") y = 82 + idleBob;
+  if (type === "fish") y = 78 + idleBob;
+  if (type === "poseidon") { y = 68 + idleBob; scale = 1.06; }
 
   ctx.save();
   ctx.translate(x, y);
@@ -4594,6 +5021,43 @@ function drawEnemyLightingPass(time) {
     rect(17, 29, 10, 3, "#454b57");
     rect(-2, -8, 3, 6, "#d7d9dc");
     rect(5, 18, 4, 2, "#8a6b54");
+  }
+
+  if (type === "shrimp") {
+    toneRect(-25, -15, 11, 4, "#ffad73", "#f27d54", "#b84b45", false);
+    toneRect(-19, -7, 15, 5, "#ff9a66", "#e95f4f", "#a83e45", false);
+    toneRect(-13, 1, 18, 5, "#ff8d61", "#d9514b", "#963947", false);
+    toneRect(2, 9, 15, 5, "#f47a58", "#c84b49", "#7d3040", false);
+    rect(-29, -22, 2, 17, "#f7a96d");
+    rect(-31, -24, 2, 12, "#d55249");
+    rect(19, -3, 7, 3, "#ffb878");
+    rect(22, -8, 2, 7, "#ffcf83");
+  }
+
+  if (type === "fish") {
+    toneRect(-23, -16, 16, 4, "#8be5ee", "#3db3c7", "#257b95", false);
+    toneRect(-26, -8, 26, 14, "#62cbdc", "#2699b6", "#17657f");
+    toneRect(-17, 5, 22, 9, "#d9f0e8", "#72c5ce", "#2b7d92", false);
+    toneRect(5, -5, 16, 10, "#6ed7e1", "#2b98b4", "#1a5d78", false);
+    rect(-5, -18, 11, 3, "#93e8ec");
+    rect(-30, -2, 5, 6, "#f3f3de");
+    rect(-12, 16, 15, 2, "#1e6178");
+    rect(15, -16, 6, 4, "#3c8ea3");
+  }
+
+  if (type === "poseidon") {
+    toneRect(-28, -19, 17, 5, "#8fe7ef", "#45b3c8", "#236f8d", false);
+    toneRect(10, -19, 17, 5, "#8fe7ef", "#45b3c8", "#236f8d", false);
+    toneRect(-16, -10, 32, 18, "#6fd2df", "#2f8fa9", "#195a79", false);
+    toneRect(-21, 8, 17, 19, "#72d8e2", "#2e93ae", "#1b5a79", false);
+    toneRect(4, 8, 17, 19, "#72d8e2", "#2e93ae", "#1b5a79", false);
+    toneRect(-12, -36, 24, 14, "#83dce4", "#3899b2", "#1f607e", false);
+    rect(-18, -7, 6, 5, "#f1cf67");
+    rect(12, -7, 6, 5, "#d8a94f");
+    rect(-8, 3, 16, 3, "#f2d16c");
+    rect(-7, -43, 5, 8, "#f3d472");
+    rect(2, -45, 6, 10, "#ffe18a");
+    rect(9, -42, 5, 7, "#e7bf5f");
   }
 
   if (type === "dragon") {
@@ -4821,14 +5285,12 @@ function drawEnemy(time) {
   const stage =
     activeStages[currentStage];
 
-  // モンスターも2フレームの待機モーション。
-  // 0.28秒ごとに上下へ2px移動して、
+  // モンスターも4フレームの待機モーション。
+  // 0.18秒ごとに上下へ2px移動して、
   // START QUEST中も常にアニメーションする。
-  const idleFrame =
-    Math.floor(time / 280) % 2;
+  const idleFrame = getIdleFrame(time);
 
-  const idleBob =
-    idleFrame === 0 ? 0 : 2;
+  const idleBob = getIdleBob(idleFrame);
 
   if (!stage) return;
 
@@ -4943,6 +5405,18 @@ function drawEnemy(time) {
     );
   }
 
+  if (stage.type === "shrimp") {
+    drawShrimp(235, 82 + idleBob, scale);
+  }
+
+  if (stage.type === "fish") {
+    drawFish(235, 78 + idleBob, scale);
+  }
+
+  if (stage.type === "poseidon") {
+    drawPoseidon(235, 68 + idleBob, scale, time);
+  }
+
   ctx.restore();
 
   /* FLASH */
@@ -5041,24 +5515,36 @@ function drawSlime(
   bodyPath.lineTo(-24, -14);
   bodyPath.closePath();
 
+  /* Pixel-stepped contour: dark plum outline keeps the original cute silhouette. */
+  ctx.save();
+  ctx.strokeStyle = "#4a2d59";
+  ctx.lineWidth = 3;
+  ctx.lineJoin = "miter";
+  ctx.lineCap = "square";
+  ctx.stroke(bodyPath);
+  ctx.restore();
+
   ctx.clip(bodyPath);
 
   const vertical = ctx.createLinearGradient(0, -26, 0, 28);
-  vertical.addColorStop(0, "#f4deef");
-  vertical.addColorStop(.16, "#e2bedc");
-  vertical.addColorStop(.36, "#c795c4");
-  vertical.addColorStop(.60, "#a36da8");
-  vertical.addColorStop(.80, "#82528d");
-  vertical.addColorStop(1, "#573765");
+  // v6の紫系ベースカラーへ戻しつつ、段差のない滑らかなゲル表現。
+  vertical.addColorStop(0, "#efd9ec");
+  vertical.addColorStop(.10, "#e6c7e2");
+  vertical.addColorStop(.22, "#cda7cf");
+  vertical.addColorStop(.38, "#b98dbb");
+  vertical.addColorStop(.54, "#a271a4");
+  vertical.addColorStop(.70, "#80538d");
+  vertical.addColorStop(.86, "#65406f");
+  vertical.addColorStop(1, "#492f57");
   ctx.fillStyle = vertical;
   ctx.fillRect(-31, -30, 62, 60);
 
   /* Slight left-to-right falloff for a round, glossy side */
   const horizontal = ctx.createLinearGradient(-27, 0, 27, 0);
-  horizontal.addColorStop(0, "rgba(244,224,240,.48)");
-  horizontal.addColorStop(.24, "rgba(255,245,250,.10)");
-  horizontal.addColorStop(.56, "rgba(107,66,122,.00)");
-  horizontal.addColorStop(1, "rgba(45,25,58,.30)");
+  horizontal.addColorStop(0, "rgba(255,241,250,.34)");
+  horizontal.addColorStop(.22, "rgba(246,222,241,.08)");
+  horizontal.addColorStop(.55, "rgba(104,64,119,0)");
+  horizontal.addColorStop(1, "rgba(57,33,69,.22)");
   ctx.fillStyle = horizontal;
   ctx.fillRect(-31, -30, 62, 60);
   ctx.restore();
@@ -5561,6 +6047,205 @@ function drawGolem(
     5,
     "#363947"
   );
+
+  ctx.restore();
+}
+
+/* =========================================================
+   BEACH MONSTERS
+   ========================================================= */
+
+function drawShrimp(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  rect(-30, 30, 58, 5, "#202337");
+
+  /* antennae */
+  rect(-27, -29, 2, 15, "#552d3d");
+  rect(-29, -34, 2, 7, "#6a3442");
+  rect(19, -22, 2, 12, "#63313e");
+  rect(21, -26, 2, 8, "#7c3c43");
+
+  /* segmented body: outline -> base -> shade */
+  rect(-25, -18, 23, 8, "#7d3041");
+  rect(-22, -20, 24, 8, "#d9544c");
+  rect(-18, -17, 21, 8, "#ef6a51");
+
+  rect(-17, -10, 27, 10, "#7b2d40");
+  rect(-15, -13, 28, 11, "#e65d4d");
+  rect(-10, -11, 23, 8, "#f97b58");
+
+  rect(-10, -1, 28, 11, "#70283d");
+  rect(-8, -4, 29, 12, "#d94e49");
+  rect(-3, -2, 23, 9, "#f36d53");
+
+  rect(0, 8, 22, 10, "#67253b");
+  rect(2, 6, 21, 11, "#c64048");
+  rect(7, 8, 15, 8, "#ed6252");
+
+  /* tail fan */
+  rect(18, 13, 10, 5, "#6e263c");
+  rect(21, 10, 10, 12, "#b73845");
+  rect(24, 8, 6, 4, "#ef6952");
+  rect(24, 20, 6, 4, "#802a3c");
+
+  /* claws */
+  rect(-23, 3, 8, 4, "#9a3040");
+  rect(-29, 2, 9, 4, "#d74d4b");
+  rect(-31, -1, 7, 4, "#ef6a52");
+  rect(7, 18, 4, 8, "#832b3d");
+  rect(11, 22, 9, 4, "#d74d49");
+  rect(14, 25, 7, 3, "#9a3140");
+
+  /* eyes / face */
+  rect(-15, -17, 6, 6, "#421f34");
+  rect(-14, -16, 2, 2, "#fff6d5");
+  rect(-2, -17, 6, 6, "#421f34");
+  rect(-1, -16, 2, 2, "#fff6d5");
+  rect(-6, -8, 8, 3, "#8d3040");
+
+  /* highlight rhythm */
+  rect(-19, -16, 7, 2, "#ffb27b");
+  rect(-12, -9, 9, 2, "#ffae78");
+  rect(-2, -1, 10, 2, "#ffad76");
+  rect(7, 7, 7, 2, "#ff9b6b");
+
+  ctx.restore();
+}
+
+function drawFish(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  rect(-31, 28, 62, 5, "#202337");
+
+  /* tail */
+  rect(20, -7, 12, 18, "#164f68");
+  rect(27, -3, 7, 10, "#247f99");
+  rect(22, -10, 8, 5, "#4caec0");
+  rect(22, 11, 8, 5, "#1d607a");
+
+  /* main body */
+  rect(-24, -16, 45, 33, "#16566f");
+  rect(-28, -10, 52, 22, "#207f98");
+  rect(-22, -13, 39, 20, "#3ab0c2");
+  rect(-17, -10, 31, 16, "#61cad6");
+
+  /* belly */
+  rect(-17, 7, 31, 7, "#a9dedc");
+  rect(-11, 12, 21, 4, "#d6e9df");
+
+  /* fins */
+  rect(-2, -21, 13, 6, "#2c8fa6");
+  rect(0, -25, 9, 5, "#49b8c5");
+  rect(-7, 15, 17, 5, "#155b73");
+  rect(2, 19, 11, 4, "#277f96");
+  rect(-30, -1, 8, 11, "#17627a");
+  rect(-35, 2, 9, 7, "#349bae");
+
+  /* face */
+  rect(-26, -8, 8, 16, "#1b6179");
+  rect(-25, -7, 5, 10, "#3ba6b8");
+  rect(-14, -7, 6, 6, "#122c43");
+  rect(-13, -6, 2, 2, "#fff8d4");
+
+  /* mouth + teeth */
+  rect(-31, 3, 10, 6, "#152638");
+  rect(-30, 4, 8, 2, "#e9f0df");
+  rect(-27, 8, 2, 3, "#ffffff");
+  rect(-23, 8, 2, 3, "#ffffff");
+
+  /* scales / highlights */
+  rect(-3, -8, 5, 2, "#b5edf0");
+  rect(6, -4, 5, 2, "#8be0e4");
+  rect(-1, 1, 6, 2, "#86dbe0");
+  rect(8, 5, 5, 2, "#5dbdc9");
+
+  ctx.restore();
+}
+
+function drawPoseidon(x, y, scale, time) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  rect(-37, 46, 74, 6, "#202337");
+
+  /* water aura */
+  const ripple = Math.sin(time / 520) * 2;
+  rect(-36, 38 + ripple, 20, 2, "#6cd4df");
+  rect(14, 36 - ripple, 24, 2, "#8ce3e7");
+  rect(-28, 43, 9, 2, "#4bb3c7");
+
+  /* cape / water mantle */
+  rect(-31, -7, 17, 45, "#164f72");
+  rect(14, -7, 17, 45, "#154b6d");
+  rect(-28, -11, 13, 33, "#287c98");
+  rect(15, -11, 13, 33, "#27758f");
+  rect(-24, -13, 8, 23, "#52b7c8");
+  rect(17, -13, 7, 23, "#48acbf");
+
+  /* legs */
+  rect(-17, 20, 13, 24, "#184d70");
+  rect(5, 20, 13, 24, "#163f64");
+  rect(-15, 21, 9, 18, "#397f9a");
+  rect(7, 21, 8, 18, "#2d718c");
+  rect(-19, 42, 16, 5, "#d1ab5a");
+  rect(5, 42, 16, 5, "#c1954a");
+
+  /* torso armor */
+  rect(-19, -10, 38, 34, "#164f71");
+  rect(-15, -8, 31, 30, "#2e8da6");
+  rect(-9, -5, 18, 23, "#56bfd0");
+  rect(-4, -7, 8, 24, "#d4ac55");
+  rect(-12, 5, 24, 3, "#f1d06d");
+  rect(-10, 14, 20, 3, "#8bdfe5");
+
+  /* arms */
+  rect(-30, -4, 12, 25, "#154966");
+  rect(-34, 8, 11, 7, "#2d809a");
+  rect(18, -5, 12, 28, "#143e61");
+  rect(23, 6, 10, 7, "#2b7892");
+
+  /* head / beard */
+  rect(-14, -34, 28, 20, "#2c7e95");
+  rect(-10, -36, 20, 6, "#4db5c3");
+  rect(-12, -18, 24, 12, "#b7d8d2");
+  rect(-8, -15, 16, 12, "#d8e7da");
+  rect(-17, -10, 6, 5, "#d0a24f");
+  rect(11, -10, 6, 5, "#bb8f45");
+
+  /* face */
+  rect(-10, -28, 7, 4, "#173148");
+  rect(3, -28, 7, 4, "#173148");
+  rect(-8, -27, 2, 2, "#fff4d3");
+  rect(5, -27, 2, 2, "#fff4d3");
+
+  /* crown */
+  rect(-14, -41, 28, 6, "#b67e33");
+  rect(-11, -47, 5, 8, "#e1b85f");
+  rect(-2, -51, 5, 12, "#f0cc70");
+  rect(6, -47, 5, 8, "#d9a84d");
+  rect(-7, -39, 14, 4, "#8a5a2c");
+
+  /* trident */
+  rect(29, -49, 3, 87, "#b7863f");
+  rect(25, -56, 3, 15, "#d8b95e");
+  rect(34, -56, 3, 15, "#d2ad55");
+  rect(30, -63, 3, 16, "#f1cf72");
+  rect(24, -58, 13, 3, "#e4c262");
+  rect(22, -53, 4, 4, "#c39a48");
+  rect(34, -53, 4, 4, "#bd9140");
+
+  /* water highlights */
+  rect(-24, -1, 6, 2, "#a6eff0");
+  rect(13, -2, 6, 2, "#8ee5ea");
+  rect(-6, -3, 12, 2, "#d6f7f1");
+  rect(-28, 23, 7, 2, "#5fc3d1");
+  rect(18, 24, 8, 2, "#4fadc2");
 
   ctx.restore();
 }
