@@ -8,9 +8,9 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20261009ui2">
 </head>
 
 <body>
@@ -143,16 +143,32 @@
           <h2 id="enemyName">PIXEL SLIME</h2>
         </div>
 
-        <div class="enemy-hp">
-          <span>HP</span>
+        <div class="battle-timer" aria-live="polite">
+          <span class="battle-timer-label">TIME</span>
+          <strong id="quizTimer">00.0</strong>
+        </div>
+
+      </div>
+
+      <div class="battle-window">
+        <canvas id="battleCanvas" width="480" height="270"></canvas>
+
+        <div class="combat-hp player-combat-hp">
+          <span>PLAYER HP</span>
+          <div class="hp-track player-hp-track">
+            <div id="playerHp" class="hp-fill player-hp-fill"></div>
+          </div>
+          <small id="playerHpText">5 / 5</small>
+        </div>
+
+        <div class="combat-hp enemy-combat-hp">
+          <span>ENEMY HP</span>
           <div class="hp-track">
             <div id="enemyHp" class="hp-fill"></div>
           </div>
         </div>
-      </div>
 
-      <div class="battle-window">
-        <canvas id="battleCanvas" width="320" height="180"></canvas>
+        <div id="timeBonusOverlay" class="time-bonus-overlay" aria-live="assertive"></div>
       </div>
 
       <div class="battle-message" id="battleMessage">
@@ -269,11 +285,9 @@
         </div>
       </div>
 
-      <div class="result-actions">
-        <button id="resultNextStageBtn" class="primary-btn large">NEXT STAGE</button>
-        <button id="resultStageSelectBtn" class="secondary-btn large">STAGE SELECT</button>
-        <button id="resultHomeBtn" class="secondary-btn large">BACK TO HOME</button>
-      </div>
+      <button id="resultHomeBtn" class="primary-btn large">
+        BACK TO HOME
+      </button>
 
     </div>
 
@@ -283,7 +297,7 @@
 
 <div id="toast" class="toast"></div>
 
-<script src="script.js"></script>
+<script src="script.js?v=20261009timeoutslime"></script>
 
 </body>
 </html>
