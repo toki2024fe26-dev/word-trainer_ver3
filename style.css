@@ -1256,30 +1256,35 @@ input:focus {
    ========================================================= */
 .time-bonus-overlay .bonus-line,
 .time-bonus-overlay .bonus-value {
-  background-image: linear-gradient(90deg,
-    #ff2f5f 0%,
-    #ff7a00 13%,
-    #ffe233 27%,
-    #42e85f 41%,
-    #16d9e9 55%,
-    #3d8dff 68%,
-    #915cff 81%,
-    #ff42c7 94%,
-    #ff2f5f 100%
-  );
-  background-size: 100% 100%;
-  background-position: center;
-  background-repeat: no-repeat;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  -webkit-text-stroke: 2px #332448;
+  display:inline-block;
+  background-image:linear-gradient(90deg,
+    #ff285c 0%,
+    #ff7a18 14%,
+    #ffe52e 28%,
+    #34e86c 42%,
+    #17e4ef 56%,
+    #4394ff 70%,
+    #9259ff 84%,
+    #ff49d2 100%
+  ) !important;
+  background-size:100% 100% !important;
+  background-repeat:no-repeat !important;
+  -webkit-background-clip:text !important;
+  background-clip:text !important;
+  -webkit-text-fill-color:transparent !important;
+  color:transparent !important;
+  /* Metallic pixel/chrome outline */
+  -webkit-text-stroke:2px #f5f7ff;
+  paint-order:stroke fill;
+  font-size:1.52em;
+  letter-spacing:.018em;
   text-shadow:
-    0 2px 0 #332448,
-    0 0 2px rgba(255,255,255,.95);
-  filter: drop-shadow(0 2px 0 rgba(20,15,32,.55));
-  animation: none !important;
+    0 -2px 0 #ffffff,
+    2px 0 0 #bcc4d6,
+    0 2px 0 #6b7388,
+    -2px 0 0 #e9edf7,
+    2px 2px 0 rgba(40,34,60,.38),
+    0 0 4px rgba(255,255,255,.42);
 }
 .time-bonus-overlay .bonus-line {
   font-size: clamp(15px, 4.2vw, 25px);
@@ -1430,4 +1435,59 @@ input:focus {
 #resultHomeBtn:active {
   color: #332b46 !important;
   -webkit-text-fill-color: #332b46 !important;
+}
+
+/* Mobile stage select: keep the action button directly under the stage art. */
+@media (max-width: 700px) {
+  .stage-select-card {
+    grid-template-columns: 92px minmax(0, 1fr);
+    grid-template-areas:
+      "art num"
+      "action main";
+    align-items: start;
+    gap: 10px 12px;
+    padding: 14px;
+  }
+
+  .stage-art {
+    grid-area: art;
+    width: 92px;
+    height: 78px;
+  }
+
+  .stage-select-number {
+    grid-area: num;
+    align-self: start;
+    text-align: left;
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .stage-select-main {
+    grid-area: main;
+    min-width: 0;
+  }
+
+  .stage-start-btn {
+    grid-area: action;
+    justify-self: stretch;
+    align-self: start;
+    min-width: 0;
+    width: 92px;
+    box-sizing: border-box;
+    padding: 9px 6px;
+    font-size: 9px;
+  }
+}
+
+/* Final readability reinforcement for action labels. */
+.stage-start-btn, .primary-btn {
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff !important;
+  text-shadow:1px 1px 0 #3e315f, -1px 0 0 rgba(30,24,45,.35);
+}
+#addWordBtn, #resultHomeBtn {
+  color:#332b46 !important;
+  -webkit-text-fill-color:#332b46 !important;
+  text-shadow:none !important;
 }
