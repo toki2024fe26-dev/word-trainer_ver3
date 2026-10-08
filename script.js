@@ -809,6 +809,15 @@ let stageHit = 0;
 let quizScore = 0;
 let correctCount = 0;
 
+const PLAYER_MAX_HP = 5;
+let playerHp = PLAYER_MAX_HP;
+
+// 1問ごとのタイムボーナス計測
+let questionTimerStart = 0;
+let questionTimerId = null;
+let questionTimeoutId = null;
+let questionTimerActive = false;
+
 let answerLocked = false;
 
 let flashIndex = 0;
@@ -822,6 +831,10 @@ let battleState = {
   damageUntil: 0,
   damageX: 0,
   damageY: 0,
+  playerDamageUntil: 0,
+  playerDamageFlashUntil: 0,
+  playerDamageX: 0,
+  playerDamageY: 0,
   defeat: 0,
   particles: []
 };
@@ -1363,9 +1376,9 @@ function createExtraScreens() {
     .monster-card { padding:12px; background:rgba(255,255,255,.76); border:1px solid #ddd7e3; box-shadow:0 6px 14px rgba(52,42,75,.06); }
     .monster-card.locked { filter:saturate(.15); opacity:.62; }
     .monster-sprite { position:relative; height:145px; margin-bottom:8px; overflow:hidden; background:radial-gradient(circle at center, rgba(111,94,153,.12), transparent 65%); border:1px solid #e1dce6; }
-    .monster-frame { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; opacity:0; animation:monsterBookIdle 1.1s steps(1,end) infinite; }
+    .monster-frame { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; image-rendering:crisp-edges; opacity:0; animation:monsterBookIdle .56s steps(1,end) infinite; }
     .monster-frame-a { animation-delay:0s; }
-    .monster-frame-b { animation-delay:.55s; }
+    .monster-frame-b { animation-delay:.28s; }
     @keyframes monsterBookIdle { 0%,49.99%{opacity:1} 50%,100%{opacity:0} }
     .monster-name { font-weight:800; letter-spacing:.07em; color:#393452; margin-bottom:5px; }
     .monster-meta { color:#8a8492; font-size:10px; letter-spacing:.05em; margin-bottom:7px; }
@@ -1654,7 +1667,7 @@ function renderMonsterBook() {
     list.appendChild(card);
 
     const frames =
-      createMonsterBookFrames(monster.type);
+      createMonsterBookFrames(monster.type, monster);
 
     frameA.src = frames[0];
     frameB.src = frames[1];
@@ -1666,62 +1679,57 @@ function renderMonsterBook() {
  * drawSlime / drawBat / drawMandraga ... を直接使って生成する。
  * これで図鑑と実際のクエストのモンスター絵が完全に同じになる。
  */
-function createMonsterBookFrames(type) {
+function createMonsterBookFrames(type, monsterMeta = {}) {
   if (!canvas || !ctx) {
     return ["", ""];
   }
 
+  const previewCanvas = document.createElement("canvas");
+  previewCanvas.width = canvas.width;
+  previewCanvas.height = canvas.height;
+  const previewCtx = previewCanvas.getContext("2d");
+  previewCtx.imageSmoothingEnabled = false;
+
+  const previousCtx = ctx;
+  const previousActiveStages = activeStages;
+  const previousCurrentStage = currentStage;
+  const previousFlashUntil = battleState.flashUntil;
+
+  // Use exactly the same stage payload the battle renderer expects.
+  activeStages = [{
+    id: monsterMeta.id || type,
+    type,
+    boss: !!monsterMeta.boss,
+    finalBoss: monsterMeta.id === "void-emperor"
+  }];
+  currentStage = 0;
+  battleState.flashUntil = 0;
+  ctx = previewCtx;
+
   const frames = [];
-  const originalImage =
-    ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-  const drawPreview = time => {
-    ctx.clearRect(
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );
+  const renderFrame = time => {
+    previewCtx.setTransform(1, 0, 0, 1, 0, 0);
+    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    previewCtx.save();
+    previewCtx.setTransform(BATTLE_RENDER_SCALE, 0, 0, BATTLE_RENDER_SCALE, 0, 0);
 
-    // 背景は描かず、モンスターだけを透明PNGとして書き出す。
-    // 2枚目は少し上下に動かして、図鑑でも確実に2フレームの
-    // アイドルアニメーションになるようにする。
-    ctx.save();
-    ctx.imageSmoothingEnabled = false;
+    /* This is intentionally the same enemy drawing order used in battle:
+       base body → coherent lighting → no independent offset layer. */
+    drawEnemy(time);
+    drawEnemyLightingPass(time);
 
-    if (time > 0) {
-      ctx.translate(0, 3);
-    }
-
-    if (type === "slime") {
-      drawSlime(235, 83, 1);
-    } else if (type === "bat") {
-      drawBat(235, 76, 1, time);
-    } else if (type === "mandraga") {
-      drawMandraga(235, 82, 1);
-    } else if (type === "wolf") {
-      drawWolf(235, 84, 1);
-    } else if (type === "phantom") {
-      drawPhantom(235, 78, 1);
-    } else if (type === "golem") {
-      drawGolem(235, 76, 1);
-    } else if (type === "dragon") {
-      drawDragon(235, 72, 1);
-    }
-
-    ctx.restore();
-
-    return canvas.toDataURL("image/png");
+    previewCtx.restore();
+    return previewCanvas.toDataURL("image/png");
   };
 
-  frames.push(drawPreview(0));
-  frames.push(drawPreview(120));
+  frames.push(renderFrame(0));
+  frames.push(renderFrame(300));
 
-  ctx.putImageData(
-    originalImage,
-    0,
-    0
-  );
+  ctx = previousCtx;
+  activeStages = previousActiveStages;
+  currentStage = previousCurrentStage;
+  battleState.flashUntil = previousFlashUntil;
 
   return frames;
 }
@@ -2453,6 +2461,7 @@ function startQuest(stageIndex = selectedStageIndex) {
   stageHit = 0;
   quizScore = 0;
   correctCount = 0;
+  playerHp = PLAYER_MAX_HP;
   answerLocked = false;
 
   selectedStageIndex = requestedStage;
@@ -2495,6 +2504,7 @@ function setupStage() {
   }
 
   updateEnemyHp();
+  updatePlayerHp();
 
   if ($("#battleMessage")) {
     $("#battleMessage")
@@ -2538,6 +2548,172 @@ function updateEnemyHp() {
       .style.width =
         `${ratio * 100}%`;
   }
+}
+
+function updatePlayerHp() {
+  const ratio = Math.max(0, playerHp / PLAYER_MAX_HP);
+  if ($("#playerHp")) {
+    $("#playerHp").style.width = `${ratio * 100}%`;
+    $("#playerHp").classList.toggle("critical", playerHp <= 2);
+  }
+  if ($("#playerHpText")) {
+    $("#playerHpText").textContent = `${playerHp} / ${PLAYER_MAX_HP}`;
+  }
+}
+
+function startPlayerDamageAnimation() {
+  const now = performance.now();
+  battleState.playerDamageUntil = now + 520;
+  battleState.playerDamageFlashUntil = now + 180;
+  battleState.playerDamageX = 58;
+  battleState.playerDamageY = 62;
+}
+
+function failQuestByDamage() {
+  stopQuestionTimer();
+  answerLocked = true;
+  if ($("#battleMessage")) {
+    $("#battleMessage").textContent = "PLAYER DOWN... QUEST FAILED";
+  }
+  startPlayerDamageAnimation();
+  setTimeout(() => finishQuiz(true), 850);
+}
+
+/* =========================================================
+   TIME BONUS
+   ========================================================= */
+
+function getTimeBonus(elapsedSeconds) {
+  if (elapsedSeconds <= 2) return 250;
+  if (elapsedSeconds <= 5) return 150;
+  if (elapsedSeconds <= 7) return 100;
+  if (elapsedSeconds <= 10) return 50;
+  return 0;
+}
+
+function formatQuizTime(seconds) {
+  return Math.max(0, seconds).toFixed(1).padStart(4, "0");
+}
+
+function updateQuizTimer() {
+  if (!questionTimerActive) return;
+
+  const elapsed =
+    (performance.now() - questionTimerStart) / 1000;
+
+  const timer = $("#quizTimer");
+  if (timer) {
+    timer.textContent = formatQuizTime(elapsed);
+    timer.classList.toggle("time-over", elapsed > 10);
+  }
+
+  questionTimerId = requestAnimationFrame(updateQuizTimer);
+}
+
+function startQuestionTimer() {
+  stopQuestionTimer();
+  questionTimerStart = performance.now();
+  questionTimerActive = true;
+
+  const timer = $("#quizTimer");
+  if (timer) {
+    timer.textContent = "00.0";
+    timer.classList.remove("time-over");
+  }
+
+  // 20秒無回答で「MISS」と同じくプレイヤーが1ダメージを受ける。
+  questionTimeoutId = window.setTimeout(() => {
+    handleQuestionTimeout();
+  }, 20000);
+
+  questionTimerId = requestAnimationFrame(updateQuizTimer);
+}
+
+function stopQuestionTimer() {
+  questionTimerActive = false;
+
+  if (questionTimerId !== null) {
+    cancelAnimationFrame(questionTimerId);
+    questionTimerId = null;
+  }
+
+  if (questionTimeoutId !== null) {
+    clearTimeout(questionTimeoutId);
+    questionTimeoutId = null;
+  }
+}
+
+function getQuestionElapsedSeconds() {
+  if (!questionTimerStart) return 999;
+  return Math.max(0, (performance.now() - questionTimerStart) / 1000);
+}
+
+function handleQuestionTimeout() {
+  if (!questionTimerActive || answerLocked) return;
+  if (currentIndex >= quizWords.length) return;
+
+  stopQuestionTimer();
+  answerLocked = true;
+
+  const current = quizWords[currentIndex];
+  if (!current) return;
+
+  const buttons = document.querySelectorAll(".answer-btn");
+  buttons.forEach(button => {
+    button.disabled = true;
+    if (button.textContent === current.jp) {
+      button.classList.add("correct");
+    }
+  });
+
+  recordWrongWord(current);
+  playWrongSound();
+
+  playerHp = Math.max(0, playerHp - 1);
+  updatePlayerHp();
+  startPlayerDamageAnimation();
+  streak = 0;
+
+  if ($("#battleMessage")) {
+    $("#battleMessage").textContent = `TIME OUT!  正解：${current.jp}`;
+  }
+
+  currentIndex++;
+  saveStats();
+  renderStats();
+
+  if (playerHp <= 0) {
+    failQuestByDamage();
+    return;
+  }
+
+  setTimeout(() => {
+    if (currentIndex >= quizWords.length) {
+      finishQuiz();
+    } else {
+      nextQuestion();
+    }
+  }, 850);
+}
+
+function showTimeBonus(bonus) {
+  if (!bonus) return;
+
+  const overlay = $("#timeBonusOverlay");
+  if (!overlay) return;
+
+  // 1行表示。数字と「!」だけ少し大きくして、
+  // TIME BONUS と数値が一目で読めるようにする。
+  overlay.innerHTML = `
+    <span class="bonus-line">TIME BONUS <strong class="bonus-value">${bonus}!</strong></span>
+  `;
+  overlay.classList.remove("show");
+  void overlay.offsetWidth;
+  overlay.classList.add("show");
+
+  setTimeout(() => {
+    overlay.classList.remove("show");
+  }, 1000);
 }
 
 /* =========================================================
@@ -2619,6 +2795,8 @@ function nextQuestion() {
   renderAnswers(
     choices
   );
+
+  startQuestionTimer();
 
   if ($("#battleMessage")) {
     $("#battleMessage")
@@ -2775,6 +2953,7 @@ function startWeakQuest() {
   stageHit = 0;
   quizScore = 0;
   correctCount = 0;
+  playerHp = PLAYER_MAX_HP;
   answerLocked = false;
   activeStages = buildRandomStages();
 
@@ -2864,6 +3043,9 @@ function handleAnswer(
 
   playButtonSound();
 
+  const elapsedSeconds = getQuestionElapsedSeconds();
+  stopQuestionTimer();
+
   answerLocked = true;
 
   const current =
@@ -2944,6 +3126,10 @@ function handleAnswer(
       "wrong"
     );
 
+    playerHp = Math.max(0, playerHp - 1);
+    updatePlayerHp();
+    startPlayerDamageAnimation();
+
     streak = 0;
 
     if ($("#battleMessage")) {
@@ -2956,6 +3142,11 @@ function handleAnswer(
 
     saveStats();
     renderStats();
+
+    if (playerHp <= 0) {
+      failQuestByDamage();
+      return;
+    }
 
     setTimeout(() => {
       if (
@@ -2980,8 +3171,13 @@ function handleAnswer(
   correctCount++;
   totalCorrect++;
 
-  quizScore += 100;
+  const timeBonus = getTimeBonus(elapsedSeconds);
+  quizScore += 100 + timeBonus;
   streak++;
+
+  if (timeBonus > 0) {
+    showTimeBonus(timeBonus);
+  }
   stageHit++;
 
   if ($("#quizScore")) {
@@ -3107,8 +3303,9 @@ function defeatCurrentEnemy() {
    RESULT
    ========================================================= */
 
-function finishQuiz() {
+function finishQuiz(failed = false) {
   answerLocked = true;
+  stopQuestionTimer();
 
   stopBGM();
 
@@ -3162,9 +3359,11 @@ function finishQuiz() {
       updateResultActions();
     }
     $("#resultTitle")
-      .textContent = stageCleared
-        ? (stages[selectedStageIndex]?.final ? "FINAL STAGE CLEAR" : "STAGE CLEAR")
-        : (correctCount === 10 ? "PERFECT CLEAR" : "QUEST COMPLETE");
+      .textContent = failed
+        ? "STAGE FAILED"
+        : (stageCleared
+          ? (stages[selectedStageIndex]?.final ? "FINAL STAGE CLEAR" : "STAGE CLEAR")
+          : (correctCount === 10 ? "PERFECT CLEAR" : "QUEST COMPLETE"));
   }
 
   showScreen(
@@ -3176,23 +3375,43 @@ function finishQuiz() {
    BATTLE CANVAS
    ========================================================= */
 
+const BATTLE_LOGICAL_WIDTH = 320;
+const BATTLE_LOGICAL_HEIGHT = 180;
+const BATTLE_RENDER_SCALE = 1.5;
+
 const canvas =
   $("#battleCanvas");
 
-const ctx =
+let ctx =
   canvas
     ? canvas.getContext("2d")
     : null;
 
-if (ctx) {
-  ctx.imageSmoothingEnabled =
-    false;
+const mainCtx = ctx;
+const backgroundCanvas = canvas
+  ? document.createElement("canvas")
+  : null;
+const backgroundCtx = backgroundCanvas
+  ? backgroundCanvas.getContext("2d")
+  : null;
+
+if (canvas) {
+  if (mainCtx) mainCtx.imageSmoothingEnabled = false;
+  if (backgroundCanvas) {
+    backgroundCanvas.width = canvas.width;
+    backgroundCanvas.height = canvas.height;
+  }
+  if (backgroundCtx) backgroundCtx.imageSmoothingEnabled = false;
 }
 
 function resetBattleAnimation() {
   battleState.attack = 0;
   battleState.flashUntil = 0;
   battleState.damageUntil = 0;
+  battleState.playerDamageUntil = 0;
+  battleState.playerDamageFlashUntil = 0;
+  battleState.playerDamageX = 0;
+  battleState.playerDamageY = 0;
   battleState.defeat = 0;
   battleState.particles = [];
 
@@ -3329,6 +3548,35 @@ function rect(
   );
 }
 
+function toneRect(
+  x,
+  y,
+  w,
+  h,
+  light,
+  mid,
+  shadow,
+  vertical = true
+) {
+  if (!ctx) return;
+
+  const gradient = vertical
+    ? ctx.createLinearGradient(0, y, 0, y + h)
+    : ctx.createLinearGradient(x, 0, x + w, 0);
+
+  gradient.addColorStop(0, light);
+  gradient.addColorStop(.5, mid);
+  gradient.addColorStop(1, shadow);
+
+  ctx.fillStyle = gradient;
+  ctx.fillRect(
+    Math.round(x),
+    Math.round(y),
+    Math.round(w),
+    Math.round(h)
+  );
+}
+
 function pixelText(
   text,
   x,
@@ -3380,22 +3628,76 @@ function drawBattle(time) {
     return;
   }
 
-  const w =
-    canvas.width;
-
-  const h =
-    canvas.height;
+  // 戦闘画面は480×270のネイティブ描画へ。
+  // これまでの320×180ベースのアートを1.5倍の座標系で描画し、
+  // ブラウザによる画像全体の拡大を減らして、ドットの輪郭を安定させる。
+  const w = BATTLE_LOGICAL_WIDTH;
+  const h = BATTLE_LOGICAL_HEIGHT;
+  const scale = BATTLE_RENDER_SCALE;
+  const physicalW = canvas.width;
+  const physicalH = canvas.height;
 
   const currentDefinition = stages[selectedStageIndex] || stages[0];
-  drawStageBackground(currentDefinition.theme || currentDefinition.id, time, w, h);
+
+  /* ================= BACKGROUND ================= */
+  if (backgroundCtx && mainCtx && backgroundCanvas) {
+    backgroundCtx.setTransform(1, 0, 0, 1, 0, 0);
+    backgroundCtx.clearRect(0, 0, physicalW, physicalH);
+    backgroundCtx.setTransform(scale, 0, 0, scale, 0, 0);
+
+    const backgroundTheme = currentDefinition.theme || currentDefinition.id;
+    const saturationMap = {
+      grassland: 0.78,
+      forest: 0.72,
+      beach: 0.70,
+      volcano: 0.68,
+      snowfield: 0.76,
+      ruins: 0.74
+    };
+
+    backgroundCtx.filter = `saturate(${saturationMap[backgroundTheme] ?? 0.74})`;
+    ctx = backgroundCtx;
+    drawStageBackground(backgroundTheme, time, w, h);
+    drawBackgroundSparkles(backgroundTheme, time, w, h);
+    backgroundCtx.filter = "none";
+    backgroundCtx.setTransform(1, 0, 0, 1, 0, 0);
+
+    ctx = mainCtx;
+    mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+    mainCtx.clearRect(0, 0, physicalW, physicalH);
+    mainCtx.save();
+    mainCtx.imageSmoothingEnabled = true;
+    mainCtx.filter = "blur(2px)";
+    mainCtx.drawImage(
+      backgroundCanvas,
+      0,
+      0,
+      physicalW,
+      physicalH
+    );
+    mainCtx.restore();
+  } else {
+    ctx = mainCtx;
+    mainCtx.setTransform(scale, 0, 0, scale, 0, 0);
+    const fallbackTheme = currentDefinition.theme || currentDefinition.id;
+    drawStageBackground(fallbackTheme, time, w, h);
+    drawBackgroundSparkles(fallbackTheme, time, w, h);
+    mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  /* ================= FOREGROUND ================= */
+  ctx = mainCtx;
+  mainCtx.setTransform(scale, 0, 0, scale, 0, 0);
+  mainCtx.imageSmoothingEnabled = false;
 
   drawHero(time);
-
   drawEnemy(time);
-
+  drawHeroFineDetails(time);
+  drawHeroMicroDetails(time);
+  drawEnemyLightingPass(time);
   drawParticles();
-
   drawDamage(time);
+  drawPlayerDamageEffect(time);
 
   pixelText(
     "QUEST BATTLE",
@@ -3414,10 +3716,6 @@ function drawBattle(time) {
     "right"
   );
 
-  /*
-    ボス時のWARNING表示
-  */
-
   if (
     activeStages[currentStage] &&
     activeStages[currentStage].boss
@@ -3431,57 +3729,402 @@ function drawBattle(time) {
       "center"
     );
   }
+
+  mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function drawBackgroundSparkles(theme, time, w, h) {
+  if (!ctx) return;
+
+  const palettes = {
+    grassland: ["#fff3a6", "#ffffff", "#d8f6ff"],
+    forest: ["#d9ffb4", "#c6f8ec", "#f5f2b0"],
+    beach: ["#fff0a8", "#d9fff7", "#ffffff"],
+    volcano: ["#ffd38a", "#ff9e6b", "#fff0b8"],
+    snowfield: ["#e8fbff", "#bfeeff", "#ffffff"],
+    ruins: ["#e8c9ff", "#a9d4ff", "#fff0cb"]
+  };
+
+  const colors = palettes[theme] || palettes.grassland;
+  const seeds = [
+    [18, 26, 1], [46, 52, 1], [77, 33, 2], [104, 68, 1],
+    [132, 24, 1], [158, 51, 2], [187, 31, 1], [214, 66, 1],
+    [244, 39, 2], [271, 72, 1], [298, 29, 1], [309, 102, 1]
+  ];
+
+  for (let i = 0; i < seeds.length; i++) {
+    const [baseX, baseY, size] = seeds[i];
+    const wave = time / (1050 + (i % 3) * 180) + i * 1.7;
+    const pulse = (Math.sin(wave) + 1) / 2;
+    if (pulse < 0.10) continue;
+
+    const x = baseX + Math.sin(time / 1700 + i) * 1.2;
+    const y = baseY + Math.cos(time / 1900 + i * .7) * 1.0;
+    const alpha = .035 + pulse * .12;
+    const c = colors[i % colors.length];
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    rect(x + size, y, size, size, c);
+    rect(x, y + size, size, size, c);
+    if (size > 1 && pulse > .55) {
+      rect(x + size, y + size, size, size, c);
+    }
+    ctx.restore();
+  }
 }
 
 function drawStageBackground(theme, time, w, h) {
-  // ステージごとにSFC～PS1風の色面・ドット景観を描く。
+  // セレクト画面の空気感をそのまま戦闘画面へ。
+  // 「空 → 遠景 → 中景 → 地面」の4層にして、細かなピクセルを増やす。
+  const sky = (top, bottom) => {
+    if (!ctx) return;
+    const g = ctx.createLinearGradient(0, 0, 0, 96);
+    g.addColorStop(0, top);
+    g.addColorStop(1, bottom);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, 96);
+  };
+  const pixelPoly = (points, color) => {
+    if (!ctx) return;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  };
+  const pixelSun = (x, y, size, color) => {
+    rect(x + 4, y, size - 8, size, color);
+    rect(x, y + 4, size, size - 8, color);
+  };
+
   if (theme === "grassland") {
-    rect(0,0,w,h,"#82a8c4"); rect(0,0,w,72,"#a9c6d7");
-    rect(0,70,w,60,"#79a05f"); rect(0,128,w,52,"#4f7045");
-    rect(0,128,w,4,"#385437");
-    for(let x=0;x<w;x+=18){ rect(x,120-(x%36===0?5:0),10,2,"#b4cf78"); rect(x+5,143+(x%24),4,2,"#6f914f"); }
-    rect(246,20,20,20,"#f0dfad"); rect(250,16,12,4,"#f0dfad");
-    rect(45,62,60,3,"#6d8f55"); rect(35,68,80,3,"#6d8f55");
+    // セレクト画面の明るい昼景をベースに、少しだけ空気遠近を追加。
+    sky("#b8d6e4", "#90b4c8");
+    rect(0, 82, w, 48, "#86aa67");
+    pixelPoly([[0,130],[0,92],[43,66],[80,91],[120,59],[160,90],[201,55],[243,91],[282,63],[320,94],[320,130]], "#72985c");
+    pixelPoly([[0,130],[0,106],[39,84],[72,108],[112,77],[151,104],[191,78],[228,106],[268,81],[320,109],[320,130]], "#8fb572");
+
+    // 昼らしさを出す明るい太陽と薄雲。
+    pixelSun(247,16,24,"#ffe8a6");
+    rect(252,13,14,2,"#fff1c2");
+    rect(28,27,38,3,"#dcebf0");
+    rect(39,23,20,3,"#e8f2f4");
+    rect(90,38,31,3,"#d5e7ed");
+    rect(103,34,18,3,"#e2eef1");
+
+    rect(0,130,w,50,"#557947");
+    rect(0,128,w,4,"#416038");
+    for(let x=0;x<w;x+=24){
+      rect(x,112-(x%48===0?3:0),12,2,"#b6cf86");
+      rect(x+8,119,7,2,"#9fbe76");
+    }
+    for(let x=8;x<w;x+=18){
+      rect(x,141+(x%22),8,2,"#769c55");
+      rect(x+3,151+(x%16),4,3,"#82a75d");
+    }
+    // ごく薄い黄色の花を差し色に。
+    rect(22,137,3,3,"#f3e58a");
+    rect(25,140,3,3,"#f3e58a");
+    rect(291,146,3,3,"#f3e58a");
+    rect(294,149,3,3,"#f3e58a");
+    rect(41,72,3,19,"#618850");
+    rect(37,68,12,3,"#73955a");
+    rect(50,78,3,14,"#5f834e");
+
   } else if (theme === "forest") {
-    rect(0,0,w,h,"#496a70"); rect(0,0,w,70,"#35555d"); rect(0,70,w,62,"#315047"); rect(0,130,w,50,"#243a32");
-    for(let x=5;x<w;x+=38){ rect(x,35,12,98,"#263e35"); rect(x-8,42,28,10,"#1f473d"); rect(x-14,55,40,12,"#285548"); rect(x-10,72,32,10,"#32634d"); }
-    for(let x=0;x<w;x+=14) rect(x,145+(x%28),8,3,"#3f5e43");
-    rect(252,23,16,16,"#d4dfbd");
+    sky("#617d82", "#3f625e");
+    // 奥の木々
+    for(let x=-8;x<w+20;x+=30){
+      rect(x+10,38,8,74,"#2d5047");
+      rect(x+1,47,26,12,"#355b4d");
+      rect(x-4,61,36,15,"#3f6a54");
+      rect(x+2,78,28,12,"#345d4d");
+    }
+    pixelPoly([[0,130],[0,76],[25,58],[42,81],[62,50],[84,78],[108,55],[130,85],[151,61],[178,87],[201,56],[221,82],[242,53],[268,84],[293,59],[320,84],[320,130]], "#335849");
+    rect(0,130,w,50,"#294338");
+    for(let x=0;x<w;x+=15){
+      rect(x,145+(x%28),9,2,"#4a6d50");
+      rect(x+4,155+(x%19),4,2,"#3e6248");
+    }
+    pixelSun(253,22,17,"#dbe5c8");
+    // 黄緑～水色の小さな光をアクセントに。
+    for(let i=0;i<10;i++){
+      const x = 25 + i*29;
+      const y = 88 + Math.sin(time/900+i)*4 + (i%3)*9;
+      rect(x,y,2,2,i%2 ? "#a4c68d" : "#84c6bb");
+    }
+
   } else if (theme === "beach") {
-    rect(0,0,w,h,"#67b5d2"); rect(0,0,w,74,"#8bd0df");
-    rect(0,74,w,46,"#5aa6bd"); rect(0,120,w,60,"#d7c47e"); rect(0,120,w,5,"#f0df9a");
-    for(let x=0;x<w;x+=34){ rect(x,133,18,2,"#c1aa68"); rect(x+12,154,11,2,"#e5d38e"); }
-    // 海面の波
-    for(let x=-10;x<w;x+=28){ rect(x,88+(x%3)*3,18,2,"#d4eef0"); rect(x+8,94+(x%4),12,2,"#d4eef0"); }
-    rect(255,18,22,22,"#f4e4a5");
+    sky("#94d3df", "#74bfd0");
+    pixelSun(253,18,23,"#ffe6a1");
+    rect(0,78,w,46,"#67afbf");
+    rect(0,78,w,3,"#9bd5da");
+    rect(0,118,w,4,"#90ced2");
+    for(let x=-10;x<w;x+=34){
+      rect(x,88+(x%3)*2,18,2,"#e9f5ef");
+      rect(x+9,96+(x%4),13,2,"#d2ebeb");
+    }
+    pixelPoly([[0,111],[26,103],[51,108],[74,96],[100,110],[128,102],[155,111],[180,98],[206,110],[232,102],[259,110],[286,99],[320,109],[320,125],[0,125]], "#77a8ac");
+    rect(0,122,w,58,"#dac486");
+    rect(0,122,w,4,"#f2df9d");
+    for(let x=0;x<w;x+=27){
+      rect(x,136,16,2,"#c0aa6d");
+      rect(x+10,151,11,2,"#e6d59a");
+      rect(x+2,165,7,2,"#cbb577");
+    }
+    // 珊瑚系の差し色をほんの少し。
+    rect(23,158,4,3,"#e5a98d");
+    rect(28,155,4,3,"#e5a98d");
+    rect(283,171,4,3,"#9ad8ce");
+    rect(289,168,4,3,"#9ad8ce");
+    // ヤシの木
+    rect(53,68,4,54,"#725e45");
+    rect(49,67,11,4,"#846d4c");
+    rect(39,61,17,3,"#557d5c"); rect(52,58,16,3,"#608a63"); rect(62,64,15,3,"#557d5c");
+    rect(45,56,4,11,"#557d5c"); rect(62,56,4,10,"#557d5c");
+
   } else if (theme === "volcano") {
-    rect(0,0,w,h,"#3a3045"); rect(0,0,w,74,"#4b3546"); rect(0,74,w,58,"#6a3b35"); rect(0,130,w,50,"#241e28");
-    // 火山と溶岩
-    rect(38,72,84,8,"#332832"); rect(52,62,56,12,"#332832"); rect(65,50,30,14,"#332832");
-    rect(77,48,6,12,"#e07b3d"); rect(69,58,24,5,"#b64d38");
-    for(let x=0;x<w;x+=22) rect(x,142+(x%4)*4,13,3,"#4e3031");
-    rect(244,24,18,18,"#d8b3a1");
-    for(let i=0;i<5;i++){ const x=170+i*16; const y=28+Math.sin(time/700+i)*6; rect(x,y,5,5,"#9a4b43"); }
+    sky("#5b4651", "#77413c");
+    pixelPoly([[0,106],[0,92],[34,76],[70,91],[109,60],[144,90],[171,70],[201,91],[241,58],[275,93],[320,74],[320,132]], "#58383d");
+    pixelPoly([[36,128],[36,104],[73,71],[103,104],[119,128]], "#312931");
+    pixelPoly([[54,103],[65,89],[73,71],[81,89],[95,104]], "#3d3038");
+    rect(69,84,7,18,"#e17a3d"); rect(73,72,3,12,"#f0a052"); rect(59,96,20,5,"#bc5039");
+    rect(0,130,w,50,"#2a2027");
+    for(let x=0;x<w;x+=22){
+      rect(x,141+(x%4)*4,13,3,"#5b3438");
+      rect(x+8,158-(x%6),8,2,"#6e3a37");
+    }
+    rect(214,110,48,3,"#8d4537"); rect(226,116,33,2,"#ad5038");
+    pixelSun(246,22,18,"#d9a38d");
+    // マグマの赤紫をほんのり差し色に。
+    rect(165,124,18,2,"#d76b58");
+    rect(178,121,10,2,"#df795d");
+    for(let i=0;i<7;i++){
+      const x=165+i*18;
+      const y=28+Math.sin(time/700+i)*6-(i%2)*3;
+      rect(x,y,4,4,i%2 ? "#b65a4d" : "#d76c53");
+      if(i%3===0) rect(x+1,y-5,2,3,"#d98762");
+    }
+
   } else if (theme === "snowfield") {
-    rect(0,0,w,h,"#9eb8ce"); rect(0,0,w,82,"#c9d9e5"); rect(0,82,w,48,"#a9c5d5"); rect(0,130,w,50,"#e2edf1");
-    // 雪山
-    rect(28,72,70,4,"#7f9daf"); rect(42,62,40,12,"#7f9daf"); rect(53,52,18,12,"#7f9daf");
-    rect(186,72,72,4,"#879fb0"); rect(204,60,40,14,"#879fb0"); rect(218,50,14,12,"#879fb0");
-    for(let x=8;x<w;x+=25) rect(x,145+(x%17),2,7,"#ffffff");
-    rect(250,22,18,18,"#f6f5e9");
+    sky("#d2e2ea", "#aec8d5");
+    pixelSun(250,21,18,"#fbf7e7");
+    pixelPoly([[0,128],[0,91],[30,68],[54,92],[85,55],[116,94],[147,69],[181,99],[210,63],[244,96],[274,74],[320,103],[320,128]], "#90a9b8");
+    pixelPoly([[0,128],[0,101],[35,82],[58,106],[86,75],[116,105],[151,82],[181,110],[210,77],[243,104],[274,88],[320,112],[320,128]], "#b5cbd5");
+    rect(0,128,w,52,"#e4eef1");
+    rect(0,128,w,4,"#f9fbfb");
+    for(let x=8;x<w;x+=25){
+      const drift = (x%3)*5;
+      rect(x,145+drift,2,7,"#fff");
+      rect(x+3,157+((x/25)%3)*2,2,5,"#cbdde4");
+    }
+    rect(20,143,48,2,"#c5d8df"); rect(24,148,34,2,"#cfdee5");
+    rect(238,145,52,2,"#c9dbe2");
+    // 氷の淡いシアンをアクセントに。
+    rect(81,160,5,2,"#9ed8dc");
+    rect(84,157,3,2,"#b9e7e4");
+    rect(263,166,5,2,"#a7dfe2");
+
   } else {
-    // ANCIENT RUINS / FINAL
-    rect(0,0,w,h,"#24233a"); rect(0,0,w,82,"#35334f"); rect(0,82,w,48,"#2a2942"); rect(0,130,w,50,"#181827");
-    // 石柱と遺跡
-    rect(28,48,20,82,"#5a5365"); rect(23,43,30,8,"#706878"); rect(38,62,7,4,"#3d394b");
-    rect(255,42,24,88,"#4d485b"); rect(250,37,34,8,"#6a6272");
-    rect(90,102,110,7,"#565064"); rect(104,92,82,10,"#4b4659");
-    // 虚無の裂け目
-    rect(145,25,30,2,"#8e6aa8"); rect(151,31,18,3,"#b17bc1"); rect(156,39,8,4,"#6e4b8e");
-    rect(244,18,16,16,"#9d82b5");
+    // ANCIENT RUINS / FINAL — セレクト画面の「妖麗な月」を強める。
+    sky("#39395b", "#2b2b48");
+
+    // 月光の薄いハロー。背景だけなので、キャラ/UIは影響を受けない。
+    if (ctx) {
+      const glow = ctx.createRadialGradient(256, 28, 6, 256, 28, 46);
+      glow.addColorStop(0, "rgba(215,194,239,.24)");
+      glow.addColorStop(.45, "rgba(174,143,208,.12)");
+      glow.addColorStop(1, "rgba(120,95,157,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(202, 0, 108, 86);
+    }
+
+    // セレクト画面の月を意識した、ひと回り大きいピクセル月。
+    pixelSun(243,14,28,"#c7b3d9");
+    rect(249,10,16,3,"#ddd1e7");
+    rect(237,24,4,10,"#b7a0cc");
+    rect(265,24,5,7,"#aa94c1");
+    rect(256,36,7,3,"#a58dbd");
+
+    rect(0,84,w,46,"#2d2b46");
+    // 遠景の遺跡シルエット
+    pixelPoly([[0,130],[0,95],[21,95],[21,63],[29,63],[29,52],[40,52],[40,91],[55,91],[55,72],[66,72],[66,105],[82,105],[82,80],[93,80],[93,60],[104,60],[104,106],[120,106],[120,87],[138,87],[138,130]], "#4a465d");
+    pixelPoly([[200,130],[200,91],[214,91],[214,66],[225,66],[225,51],[237,51],[237,93],[252,93],[252,71],[265,71],[265,44],[280,44],[280,98],[296,98],[296,81],[307,81],[307,58],[318,58],[318,130]], "#544f63");
+    // 月光を受ける縁を少しだけ。
+    rect(228,51,9,2,"#706883");
+    rect(265,44,15,2,"#756d86");
+    rect(92,60,12,2,"#6a637a");
+
+    rect(0,130,w,50,"#1b1a2b");
+    for(let x=0;x<w;x+=36){
+      rect(x,141,25,3,"#363249");
+      rect(x+10,156,21,2,"#2b2840");
+    }
+    rect(95,112,126,7,"#5e586a"); rect(112,102,91,9,"#4f4a5c");
+
+    // 紫＋青の微かな魔法文字を差し色に。
+    rect(142,27,34,2,"#8f76b6");
+    rect(149,33,20,3,"#c17bcf");
+    rect(155,41,8,4,"#70528e");
+    rect(151,24,2,22,"#7a5b94");
+    rect(166,29,2,15,"#6f5087");
+    rect(195,118,5,2,"#7da6c8");
+    rect(203,115,3,2,"#a09ce0");
   }
 
+  // 背景の細密ピクセルディテール。キャラクターの背後にのみ描画し、
+  // セレクト画面のような「小さい情報の積み重ね」を増やす。
+  drawStageFineDetails(theme, time, w, h);
+
+  // ステージ名は既存HUDの一部として残す。
   pixelText(theme === "ruins" ? "ANCIENT RUINS" : theme.toUpperCase(), 9, 10, 7, "#ffffff");
+}
+/* =========================================================
+   STAGE FINE PIXEL DETAILS
+   ========================================================= */
+
+function drawStageFineDetails(theme, time, w, h) {
+  if (!ctx) return;
+
+  const p = (x, y, ww, hh, color) => rect(x, y, ww, hh, color);
+  const blink = (speed = 900, offset = 0) =>
+    Math.sin((time + offset) / speed) * 0.5 + 0.5;
+
+  ctx.save();
+
+  if (theme === "grassland") {
+    // 昼の草原：小さな花・草・石・雲の粒で明るい情報密度を追加。
+    for (let i = 0; i < 18; i++) {
+      const x = 7 + ((i * 37) % 306);
+      const y = 120 + ((i * 17) % 49);
+      p(x, y, 2, 5, i % 3 === 0 ? "#7da35a" : "#6e9652");
+      if (i % 4 === 0) p(x + 2, y + 2, 3, 2, "#a6c97b");
+    }
+    const flowers = [
+      [17, 128, "#f1dc87"], [45, 146, "#f6e7a0"], [82, 133, "#e9d87e"],
+      [123, 151, "#f2df91"], [168, 127, "#f4e3a1"], [213, 146, "#ecd580"],
+      [270, 132, "#f4e69d"], [302, 154, "#f1dc88"]
+    ];
+    for (const [x,y,c] of flowers) {
+      p(x, y, 2, 2, c); p(x + 2, y + 2, 2, 2, c);
+      p(x + 1, y + 4, 1, 4, "#65864a");
+    }
+    p(70, 92, 25, 2, "#cfe3ec"); p(77, 89, 14, 2, "#e3eef2");
+    p(188, 60, 21, 2, "#d8e9ef"); p(195, 57, 10, 2, "#edf4f5");
+    p(147, 115, 8, 3, "#8aa86a"); p(151, 113, 3, 2, "#aac58a");
+    p(278, 101, 9, 3, "#7f9f62");
+
+  } else if (theme === "forest") {
+    // 森林：前後の枝・葉・光点を増やして、木立の奥行きを強化。
+    for (let x = -3; x < w + 10; x += 22) {
+      p(x + 2, 58 + (x % 5), 3, 41, "#24453d");
+      p(x - 3, 72 + (x % 7), 15, 4, "#315949");
+      p(x + 5, 65 + (x % 9), 18, 3, "#3d6a54");
+      if ((x / 22) % 2 === 0) p(x + 8, 52 + (x % 6), 5, 3, "#4c765b");
+    }
+    for (let i = 0; i < 13; i++) {
+      const x = 16 + i * 23;
+      const y = 104 + (i % 3) * 7;
+      p(x, y, 2, 6, "#6f965f");
+      p(x + 2, y + 2, 4, 2, "#86aa6c");
+      if (i % 3 === 0) p(x - 2, y + 1, 3, 2, "#477b63");
+    }
+    for (let i = 0; i < 7; i++) {
+      const x = 35 + i * 38;
+      const y = 45 + (i % 3) * 14;
+      const a = blink(850, i * 73);
+      ctx.globalAlpha = 0.45 + a * 0.45;
+      p(x, y, 2, 2, i % 2 ? "#9fdbc0" : "#d0e7a0");
+      ctx.globalAlpha = 1;
+    }
+    p(115, 136, 12, 3, "#355c48"); p(121, 133, 8, 3, "#416e52");
+    p(204, 150, 15, 2, "#3c634b");
+
+  } else if (theme === "beach") {
+    // 砂浜：細かな波・貝・珊瑚色の小粒でリゾート感を追加。
+    for (let i = 0; i < 10; i++) {
+      const x = 6 + ((i * 31) % 305);
+      const y = 90 + ((i * 11) % 29);
+      p(x, y, 14, 2, i % 2 ? "#acdfe1" : "#bfe8e5");
+      p(x + 5, y + 3, 7, 2, "#d7eff0");
+    }
+    for (let i = 0; i < 11; i++) {
+      const x = 15 + ((i * 29) % 285);
+      const y = 137 + ((i * 19) % 35);
+      p(x, y, 3, 2, i % 3 === 0 ? "#e3ad8f" : "#d7c17e");
+      p(x + 3, y + 1, 2, 2, i % 2 ? "#f0d99a" : "#b0d9c8");
+    }
+    p(98, 72, 16, 2, "#b4dfe0"); p(104, 69, 9, 2, "#dceff0");
+    p(233, 126, 12, 3, "#c7b06f"); p(239, 122, 6, 3, "#efd995");
+
+  } else if (theme === "volcano") {
+    // 火山：黒い岩肌の亀裂、火の粉、遠景の溶岩筋。
+    for (let i = 0; i < 12; i++) {
+      const x = 8 + ((i * 31) % 300);
+      const y = 133 + ((i * 13) % 40);
+      p(x, y, 10, 2, "#493034");
+      if (i % 3 === 0) p(x + 5, y + 2, 3, 2, "#63383a");
+    }
+    p(110, 121, 22, 3, "#7f4139"); p(118, 117, 10, 2, "#a14a3d");
+    p(278, 109, 16, 2, "#8d4339"); p(286, 105, 9, 2, "#bb533d");
+    for (let i = 0; i < 10; i++) {
+      const x = 18 + ((i * 29) % 292);
+      const y = 38 + ((i * 17) % 78);
+      if (i % 2 === 0) p(x, y, 2, 3, "#d56a50");
+      else p(x, y, 3, 2, "#ec8c58");
+    }
+    p(53, 145, 13, 3, "#2f252b"); p(58, 140, 6, 3, "#5b3337");
+
+  } else if (theme === "snowfield") {
+    // 雪原：雪の段差・氷片・風の筋を増やして白銀の密度を出す。
+    for (let i = 0; i < 16; i++) {
+      const x = 7 + ((i * 23) % 305);
+      const y = 138 + ((i * 13) % 35);
+      p(x, y, 8 + (i % 3) * 3, 2, i % 2 ? "#c8dce4" : "#f7fbfc");
+    }
+    for (let i = 0; i < 8; i++) {
+      const x = 28 + i * 35;
+      const y = 55 + (i % 4) * 11;
+      p(x, y, 10, 2, "#dcebf0");
+      p(x + 5, y + 3, 6, 2, "#f2f8fa");
+    }
+    p(115, 111, 28, 3, "#a9c3d0"); p(121, 108, 16, 3, "#c1d6df");
+    p(228, 131, 13, 2, "#a7c4d1"); p(236, 127, 8, 2, "#f8fbfc");
+    // 小さなシアンの氷片
+    p(38, 154, 3, 3, "#9bd9de"); p(42, 157, 2, 4, "#b8e8e7");
+    p(289, 148, 3, 3, "#a7e0e2");
+
+  } else {
+    // 遺跡：月光を受けた石の段差、柱、魔法の粉塵を増やす。
+    // 月の周辺は暗部を潰さず、淡い紫で階調を細かくする。
+    p(205, 58, 13, 2, "#66607b"); p(219, 61, 7, 2, "#77708b");
+    p(286, 69, 16, 2, "#615b74"); p(300, 72, 7, 2, "#756e86");
+    p(27, 101, 12, 2, "#625c74"); p(44, 96, 6, 3, "#716a82");
+    p(76, 107, 19, 3, "#5b556d"); p(88, 103, 8, 2, "#77708a");
+    for (let i = 0; i < 9; i++) {
+      const x = 24 + i * 33;
+      const y = 136 + (i % 3) * 11;
+      p(x, y, 13, 2, i % 2 ? "#302e43" : "#3c384d");
+      if (i % 3 === 0) p(x + 7, y - 4, 5, 2, "#4f4960");
+    }
+    // 月光の粒
+    for (let i = 0; i < 11; i++) {
+      const x = 44 + ((i * 27) % 228);
+      const y = 34 + ((i * 19) % 96);
+      const a = blink(1100, i * 91);
+      ctx.globalAlpha = 0.28 + a * 0.45;
+      p(x, y, i % 3 === 0 ? 2 : 1, i % 2 ? 2 : 1, i % 2 ? "#bdaee2" : "#8fb0d0");
+      ctx.globalAlpha = 1;
+    }
+    p(132, 112, 46, 3, "#4a445a"); p(144, 107, 24, 2, "#625b70");
+    p(150, 102, 4, 5, "#756d83"); p(166, 105, 4, 6, "#6e667d");
+  }
+
+  ctx.restore();
 }
 
 /* =========================================================
@@ -3489,235 +4132,494 @@ function drawStageBackground(theme, time, w, h) {
    ========================================================= */
 
 function drawHero(time) {
-  const attack =
-    battleState.attack;
+  const attack = battleState.attack;
 
-  // 戦闘中の待機アニメーションは2フレーム。
-  // 約0.28秒ごとに上下へ2px動かして、
-  // プレイヤー自身も常時「2枚絵」で動いて見えるようにする。
-  const idleFrame =
-    Math.floor(time / 280) % 2;
-
-  const idleBob =
-    idleFrame === 0 ? 0 : 2;
+  const idleFrame = Math.floor(time / 280) % 2;
+  const idleBob = idleFrame === 0 ? 0 : 2;
 
   let swordPhase = 0;
-
   if (attack > 0) {
-    const elapsed =
-      1 - attack;
-
-    swordPhase =
-      Math.min(
-        1,
-        elapsed * 1.9
-      );
+    const elapsed = 1 - attack;
+    swordPhase = Math.min(1, elapsed * 1.9);
   }
 
-  const x = 58;
+  const damageActive = battleState.playerDamageUntil > time;
+  const damageShake = damageActive
+    ? (Math.floor((battleState.playerDamageUntil - time) / 45) % 2 === 0 ? -2 : 2)
+    : 0;
+
+  const x = 58 + damageShake;
   const y = 83 + idleBob;
 
-  /* SHADOW */
+  /* =========================
+     HERO — GOLDEN KNIGHT
+     ========================= */
 
-  rect(
-    x - 18,
-    y + 38,
-    39,
-    4,
-    "#1c1d2b"
-  );
+  /* ground shadow */
+  ctx.save();
+  ctx.globalAlpha = .26;
+  rect(x - 20, y + 48, 13, 2, "#171725");
+  rect(x - 7, y + 50, 18, 2, "#171725");
+  rect(x + 11, y + 48, 12, 2, "#171725");
+  ctx.restore();
 
-  rect(
-    x - 12,
-    y + 42,
-    27,
-    2,
-    "#252638"
-  );
+  /* flowing cape */
+  rect(x - 17, y - 7, 25, 32, "#30426f");
+  rect(x - 14, y - 10, 18, 5, "#516da0");
+  rect(x - 18, y + 13, 6, 12, "#25375f");
+  rect(x - 14, y + 18, 5, 8, "#3b5386");
+  rect(x + 5, y + 17, 4, 9, "#26385f");
+  rect(x - 15, y + 24, 6, 2, "#6b83b1");
 
-  /* CAPE */
+  /* golden hair — shadow / mid / highlight */
+  rect(x - 9, y - 22, 22, 18, "#8f6427");
+  rect(x - 6, y - 26, 18, 9, "#c8953e");
+  rect(x - 2, y - 27, 12, 4, "#e8c36b");
+  rect(x + 10, y - 20, 7, 12, "#a8732f");
+  rect(x - 10, y - 15, 5, 9, "#c38d35");
+  rect(x - 8, y - 20, 7, 3, "#f0d17d");
+  rect(x + 12, y - 15, 4, 7, "#765023");
 
-  rect(
-    x - 15,
-    y - 8,
-    23,
-    32,
-    "#403c70"
-  );
+  /* crown */
+  rect(x - 7, y - 31, 18, 4, "#8f6925");
+  rect(x - 5, y - 35, 4, 6, "#d7ae4d");
+  rect(x + 1, y - 38, 4, 9, "#f0cf68");
+  rect(x + 7, y - 35, 4, 6, "#d7ae4d");
+  rect(x - 3, y - 33, 13, 2, "#f7db78");
+  rect(x + 1, y - 32, 4, 2, "#6f88c2");
 
-  rect(
-    x - 12,
-    y - 11,
-    17,
-    5,
-    "#5e568f"
-  );
+  /* face */
+  rect(x - 2, y - 14, 17, 17, "#c98266");
+  rect(x + 1, y - 14, 14, 14, "#edb28d");
+  rect(x + 12, y - 9, 4, 7, "#c98169");
+  rect(x + 4, y - 7, 3, 2, "#2b2530");
+  rect(x + 12, y - 7, 3, 2, "#2b2530");
+  rect(x + 5, y - 8, 1, 1, "#ffffff");
+  rect(x + 13, y - 8, 1, 1, "#ffffff");
+  rect(x + 8, y - 3, 4, 2, "#bf705e");
+  rect(x + 3, y + 1, 10, 2, "#e7a17f");
 
-  rect(
-    x - 18,
-    y + 18,
-    7,
-    11,
-    "#332f5b"
-  );
+  /* collar */
+  rect(x + 2, y + 2, 12, 7, "#5d6475");
+  rect(x + 5, y + 2, 6, 4, "#d8dce1");
 
-  /* HAIR */
+  /* arm / gauntlet */
+  rect(x + 11, y + 7, 14, 8, "#69717f");
+  rect(x + 14, y + 6, 9, 3, "#aeb5c0");
+  rect(x + 21, y + 10, 8, 7, "#d0d4d7");
+  rect(x + 23, y + 10, 5, 3, "#eef1f2");
 
-  rect(
-    x - 5,
-    y - 25,
-    21,
-    20,
-    "#5b3854"
-  );
+  /* armor torso — silver three-tone */
+  rect(x - 8, y + 7, 27, 25, "#3c4351");
+  rect(x - 5, y + 6, 22, 24, "#858d99");
+  rect(x - 2, y + 8, 14, 18, "#b8bec6");
+  rect(x + 9, y + 9, 7, 17, "#69717d");
 
-  rect(
-    x - 10,
-    y - 20,
-    8,
-    15,
-    "#6d4561"
-  );
+  /* chest crest */
+  rect(x + 3, y + 8, 7, 4, "#dce1e6");
+  rect(x + 5, y + 12, 5, 8, "#4f69a1");
+  rect(x + 4, y + 12, 2, 5, "#f4f5f5");
+  rect(x + 5, y + 18, 4, 3, "#35508a");
 
-  rect(
-    x + 12,
-    y - 17,
-    8,
-    18,
-    "#482e4b"
-  );
+  /* armor seams / pauldrons */
+  rect(x - 10, y + 8, 5, 8, "#606876");
+  rect(x - 11, y + 7, 5, 4, "#9ea6b2");
+  rect(x + 15, y + 7, 6, 7, "#5d6572");
+  rect(x + 16, y + 6, 5, 3, "#b8bec8");
 
-  /* FACE */
+  /* belt + gold buckle */
+  rect(x - 7, y + 26, 26, 6, "#343946");
+  rect(x + 3, y + 26, 7, 6, "#c39443");
+  rect(x + 5, y + 27, 3, 3, "#f1d37d");
 
-  rect(
-    x - 1,
-    y - 14,
-    17,
-    16,
-    "#e8b89b"
-  );
+  /* legs / greaves */
+  rect(x - 5, y + 32, 10, 15, "#4c5360");
+  rect(x + 8, y + 32, 10, 15, "#3e4552");
+  rect(x - 4, y + 32, 4, 11, "#a7adb5");
+  rect(x + 9, y + 32, 4, 11, "#737b87");
+  rect(x - 7, y + 44, 13, 7, "#323743");
+  rect(x + 7, y + 44, 14, 7, "#2a2f3a");
+  rect(x - 5, y + 44, 7, 2, "#b7bec7");
+  rect(x + 8, y + 44, 7, 2, "#7f8895");
 
-  rect(
-    x + 13,
-    y - 8,
-    5,
-    3,
-    "#2b2734"
-  );
+  /* left-hand mini shield — intentionally secondary */
+  rect(x - 20, y + 7, 8, 14, "#445477");
+  rect(x - 18, y + 9, 5, 9, "#768eb9");
+  rect(x - 18, y + 10, 5, 2, "#c6cedc");
+  rect(x - 17, y + 12, 3, 5, "#3b5b9d");
+  rect(x - 20, y + 18, 8, 3, "#29344e");
 
-  rect(
-    x + 5,
-    y - 7,
-    3,
-    2,
-    "#362b38"
-  );
-
-  /* NECK */
-
-  rect(
-    x + 4,
-    y + 1,
-    8,
-    8,
-    "#d89d83"
-  );
-
-  /* ARM */
-
-  rect(
-    x + 8,
-    y + 6,
-    17,
-    7,
-    "#b76b80"
-  );
-
-  rect(
-    x + 20,
-    y + 10,
-    8,
-    7,
-    "#e1aa8e"
-  );
-
-  /* BODY */
-
-  rect(
-    x - 7,
-    y + 5,
-    25,
-    26,
-    "#7562a2"
-  );
-
-  rect(
-    x - 3,
-    y + 8,
-    17,
-    20,
-    "#8c78b4"
-  );
-
-  /* BELT */
-
-  rect(
-    x - 6,
-    y + 26,
-    25,
-    5,
-    "#302d42"
-  );
-
-  rect(
-    x + 3,
-    y + 26,
-    7,
-    5,
-    "#d4a75c"
-  );
-
-  /* LEGS */
-
-  rect(
-    x - 5,
-    y + 31,
-    9,
-    16,
-    "#373548"
-  );
-
-  rect(
-    x + 8,
-    y + 31,
-    9,
-    16,
-    "#403b4d"
-  );
-
-  /* BOOTS */
-
-  rect(
-    x - 8,
-    y + 45,
-    13,
-    5,
-    "#262530"
-  );
-
-  rect(
-    x + 7,
-    y + 45,
-    13,
-    5,
-    "#262530"
-  );
-
+  /* Sword: keep the existing design and attack motion unchanged. */
   drawSword(
     x + 24,
     y + 13,
     swordPhase
   );
+}
+
+/* =========================================================
+   CHARACTER FINE PIXEL DETAILS
+   ========================================================= */
+
+function drawHeroFineDetails(time) {
+  // Hero details are now integrated into drawHero() for consistent shading.
+}
+
+function drawHeroMicroDetails(time) {
+  // Hero details are now integrated into drawHero() for consistent shading.
+}
+
+function drawEnemyMicroDetails(time) {
+  if (!ctx) return;
+
+  const stage = activeStages[currentStage];
+  if (!stage) return;
+
+  const idleFrame = Math.floor(time / 280) % 2;
+  const idleBob = idleFrame === 0 ? 0 : 2;
+  const type = stage.type;
+  let x = 235;
+  let y = 82 + idleBob;
+  let scale = 1;
+
+  if (type === "bat") y = 76 + idleBob;
+  if (type === "dragon") { y = 72 + idleBob; scale = stage.finalBoss ? 1.12 : 1; }
+  if (type === "wolf") y = 84 + idleBob;
+  if (type === "phantom") y = 78 + idleBob;
+  if (type === "golem") y = 76 + idleBob;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  if (type === "slime") {
+    // ゲルの透過感：上面の光と下面の濃い影
+    rect(-15, -9, 4, 2, "#e3c4df");
+    rect(-10, -15, 3, 2, "#f2dded");
+    rect(-20, 2, 3, 7, "#8f5f8f");
+    rect(16, 1, 3, 8, "#61436f");
+    rect(-11, 15, 5, 3, "#684672");
+    rect(-2, 18, 8, 2, "#5b3f68");
+    rect(8, 15, 5, 3, "#704977");
+    rect(-7, -4, 2, 1, "#ffffff");
+    rect(8, -4, 2, 1, "#ffffff");
+  }
+
+  if (type === "bat") {
+    // 翼膜のセル状の陰影と耳・爪の反射
+    rect(-31, 0, 4, 2, "#7a6f99");
+    rect(-30, 7, 6, 2, "#3c3657");
+    rect(24, 0, 5, 2, "#7a6f99");
+    rect(24, 7, 6, 2, "#3c3657");
+    rect(-6, -22, 3, 4, "#9481a5");
+    rect(4, -22, 3, 4, "#9481a5");
+    rect(-14, 17, 3, 3, "#d1c6d2");
+    rect(11, 17, 3, 3, "#d1c6d2");
+  }
+
+  if (type === "mandraga") {
+    // 葉の表裏と幹の粒状ディテール
+    rect(-15, -16, 6, 2, "#a7c17c");
+    rect(10, -25, 5, 2, "#b0ca82");
+    rect(-11, -7, 3, 8, "#557247");
+    rect(8, 1, 3, 8, "#587548");
+    rect(-8, 17, 4, 3, "#4c6942");
+    rect(5, 19, 4, 3, "#4a6741");
+    rect(-3, 3, 2, 6, "#b3cb7c");
+  }
+
+  if (type === "wolf") {
+    // 毛の塊を3段階に分け、顔周辺を少しシャープに
+    rect(-18, -20, 5, 2, "#8f96a4");
+    rect(-15, -17, 4, 3, "#6f7789");
+    rect(6, -16, 4, 3, "#353c50");
+    rect(15, -1, 4, 3, "#2e3548");
+    rect(17, 5, 3, 2, "#858c9b");
+    rect(-8, 3, 2, 2, "#9aa0ab");
+    rect(-3, 7, 3, 2, "#4f5668");
+    rect(13, 26, 5, 2, "#2a3040");
+  }
+
+  if (type === "phantom") {
+    // 霊体の縁を細かなアルファ段階で
+    const glow = .16;
+    ctx.globalAlpha = glow;
+    rect(-23, -18, 3, 6, "#b4a9d2");
+    rect(20, -14, 3, 8, "#9c91c2");
+    rect(-28, 9, 3, 5, "#9a90be");
+    rect(24, 14, 3, 5, "#8d83b0");
+    ctx.globalAlpha = .95;
+    rect(-8, -18, 2, 2, "#fff2b3");
+    rect(9, -18, 2, 2, "#fff2b3");
+    ctx.globalAlpha = 1;
+  }
+
+  if (type === "golem") {
+    // 石の面と金属光沢をタイル状に分割
+    rect(-24, -21, 7, 3, "#8c919d");
+    rect(16, -20, 6, 3, "#666c7b");
+    rect(-27, 4, 6, 4, "#474d5d");
+    rect(21, 8, 6, 3, "#8e929e");
+    rect(-10, -4, 4, 3, "#6f7481");
+    rect(7, -3, 4, 3, "#3e4452");
+    rect(-15, 13, 3, 8, "#737885");
+    rect(13, 14, 3, 8, "#3f4551");
+    rect(-1, 8, 2, 2, "#d59362");
+  }
+
+  if (type === "dragon") {
+    // 鱗を小さな光点と陰影で増やす
+    toneRect(-18, -18, 4, 2, "#c8aeca", "#947aa0", "#715875", false);
+    toneRect(-11, -14, 3, 2, "#e0bede", "#ad8cad", "#80647f", false);
+    toneRect(8, -15, 3, 2, "#b996b6", "#8e718f", "#695267", false);
+    toneRect(15, -18, 4, 2, "#9a759f", "#745a80", "#56425f", false);
+    rect(-14, -2, 4, 2, "#9d7b98");
+    rect(10, 0, 4, 2, "#8d6c8d");
+    rect(-11, 9, 3, 3, "#b08aa1");
+    rect(8, 10, 3, 3, "#806277");
+    rect(-27, -11, 5, 2, "#7d6b9d");
+    rect(23, -11, 5, 2, "#76628f");
+    rect(-3, 15, 6, 2, "#b18aa0");
+  }
+
+  // 接地影：背景からキャラクターを切り出すための低密度ドット影
+  ctx.globalAlpha = .28;
+  rect(-18, 34, 11, 2, "#171725");
+  rect(-6, 36, 13, 2, "#171725");
+  rect(9, 34, 10, 2, "#171725");
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+}
+
+function drawEnemyFineDetails(time) {
+  const stage = activeStages[currentStage];
+  if (!stage) return;
+
+  const idleFrame = Math.floor(time / 280) % 2;
+  const idleBob = idleFrame === 0 ? 0 : 2;
+  const type = stage.type;
+
+  let x = 235;
+  let y = 82 + idleBob;
+  let scale = 1;
+  if (type === "bat") y = 76 + idleBob;
+  if (type === "dragon") { y = 72 + idleBob; scale = stage.finalBoss ? 1.12 : 1; }
+  if (type === "wolf") y = 84 + idleBob;
+  if (type === "phantom") y = 78 + idleBob;
+  if (type === "golem") y = 76 + idleBob;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  if (type === "slime") {
+    rect(-18, -14, 4, 3, "#d4aacd");
+    rect(-19, -11, 2, 8, "#b786ae");
+    rect(14, -4, 5, 3, "#9d6ba1");
+    rect(-17, 11, 4, 3, "#76507f");
+    rect(13, 9, 5, 3, "#6f4b79");
+    rect(-6, 19, 12, 2, "#ad7ab4");
+    rect(17, -33, 2, 5, "#f0cc74");
+    rect(10, -28, 3, 2, "#e6b96a");
+  }
+
+  if (type === "bat") {
+    // 翼膜のリブ
+    for (const pts of [
+      [-37, -1, 10, 2, "#655a84"], [-35, 5, 13, 2, "#4a4468"], [-34, 11, 11, 2, "#6c6286"],
+      [24, -1, 10, 2, "#655a84"], [23, 5, 13, 2, "#4a4468"], [24, 11, 11, 2, "#6c6286"]
+    ]) rect(...pts);
+    rect(-8, -18, 4, 10, "#7d6a91"); rect(4, -18, 4, 10, "#7d6a91");
+    rect(-14, 2, 3, 9, "#493d60"); rect(11, 2, 3, 9, "#493d60");
+    rect(-2, 20, 3, 7, "#b9aeb4"); rect(2, 20, 3, 7, "#b9aeb4");
+  }
+
+  if (type === "mandraga") {
+    // 葉脈・樹皮・根
+    toneRect(-9, -22, 2, 12, "#c0d88d", "#93aa6b", "#68814f");
+    toneRect(7, -33, 2, 12, "#c5db92", "#93aa6b", "#66804d");
+    toneRect(-16, -5, 5, 2, "#a3bd77", "#78955e", "#587046", false); toneRect(11, -1, 5, 2, "#acc77d", "#86a167", "#5d7748", false);
+    toneRect(-17, 8, 4, 10, "#8ea866", "#6f8b58", "#4a603e"); toneRect(13, 8, 4, 9, "#87a05f", "#688454", "#455c3a");
+    rect(-14, 20, 7, 2, "#78935b"); rect(7, 22, 9, 2, "#718c58");
+    rect(-5, 14, 3, 4, "#78935b"); rect(3, -2, 3, 4, "#9eb26f");
+  }
+
+  if (type === "wolf") {
+    // 毛並み・マズル・脚の陰影
+    toneRect(-21, -22, 12, 3, "#b6bcc4", "#87909f", "#626b7d", false);
+    toneRect(-11, -18, 3, 8, "#a6adb9", "#7d8495", "#565f72");
+    toneRect(4, -18, 4, 9, "#596174", "#434a60", "#303747");
+    toneRect(-24, -7, 6, 4, "#747d90", "#596174", "#3d4557", false);
+    toneRect(13, -4, 5, 4, "#4e5669", "#394054", "#2a3041", false);
+    rect(-6, -2, 12, 2, "#757c8d");
+    rect(-2, 4, 4, 3, "#1f2331");
+    rect(-25, 21, 8, 3, "#616b7e"); rect(11, 20, 8, 3, "#3d4559");
+    rect(-19, 28, 7, 2, "#343a4c"); rect(5, 28, 7, 2, "#343a4c");
+  }
+
+  if (type === "phantom") {
+    // 霊体の透明な段差と目の光
+    toneRect(-19, -28, 5, 8, "#a59fba", "#8179a1", "#655e86");
+    toneRect(15, -28, 5, 9, "#8d86aa", "#625c86", "#49456d");
+    toneRect(-26, -5, 5, 14, "#a39cbb", "#8179a4", "#625a82");
+    toneRect(21, 0, 5, 12, "#8f88ab", "#615a83", "#474369");
+    rect(-9, -17, 3, 3, "#f2e2ad"); rect(8, -17, 3, 3, "#f2e2ad");
+    rect(-4, 11, 8, 2, "#837aa2");
+    rect(-16, 20, 6, 3, "#5f5980"); rect(10, 20, 7, 3, "#5b557a");
+  }
+
+  if (type === "golem") {
+    // 石ブロックの継ぎ目と金属ディテール
+    toneRect(-26, -25, 12, 2, "#aeb2ba", "#7b808e", "#565b69", false); toneRect(14, -24, 11, 2, "#777c89", "#5d6473", "#424854", false);
+    toneRect(-31, -2, 10, 3, "#747986", "#555b6b", "#3c424f", false); toneRect(21, 2, 9, 3, "#aeb2b8", "#858997", "#5e6370", false);
+    toneRect(-19, 9, 3, 15, "#7b808b", "#5c6170", "#3f444f"); toneRect(16, 10, 3, 14, "#767b87", "#5a5f6e", "#3c424d");
+    rect(-5, -28, 3, 14, "#737887"); rect(4, -28, 3, 11, "#454b59");
+    rect(-28, 30, 11, 3, "#545968"); rect(17, 29, 11, 3, "#4a505f");
+    rect(-2, 2, 4, 3, "#c27e54"); rect(4, 18, 4, 2, "#7f6f57");
+  }
+
+  if (type === "dragon") {
+    // 翼膜・鱗・胸当てを細かなピクセルで追加。
+    for (const pts of [
+      [-41, -23, 9, 2, "#5f5788"], [-39, -15, 13, 2, "#4b456e"], [-35, -7, 10, 2, "#6e6490"],
+      [32, -23, 9, 2, "#5f5788"], [26, -15, 13, 2, "#4b456e"], [25, -7, 10, 2, "#6e6490"]
+    ]) rect(...pts);
+    rect(-26, -51, 5, 2, "#e6c178"); rect(21, -51, 5, 2, "#e6c178");
+    rect(-8, -31, 4, 3, "#80648a"); rect(4, -31, 4, 3, "#7c6085");
+    rect(-15, -24, 3, 8, "#796087"); rect(12, -24, 3, 8, "#705879");
+    rect(-17, -1, 5, 3, "#856b87"); rect(12, 1, 5, 3, "#755a7f");
+    rect(-18, 11, 5, 3, "#765d80"); rect(14, 12, 5, 3, "#6b5478");
+    rect(-24, 22, 5, 9, "#463b5e"); rect(20, 22, 5, 9, "#44395b");
+  }
+
+  ctx.restore();
+}
+
+/* =========================================================
+   MONSTER LIGHTING — consistent top-left light / bottom-right shadow
+   ========================================================= */
+function drawEnemyLightingPass(time) {
+  if (!ctx) return;
+  const stage = activeStages[currentStage];
+  if (!stage) return;
+
+  const type = stage.type;
+  const idleBob = (Math.floor(time / 280) % 2) === 0 ? 0 : 2;
+  let x = 235;
+  let y = 82 + idleBob;
+  let scale = 1;
+  if (type === "bat") y = 76 + idleBob;
+  if (type === "dragon") { y = 72 + idleBob; scale = stage.finalBoss ? 1.12 : 1; }
+  if (type === "wolf") y = 84 + idleBob;
+  if (type === "phantom") y = 78 + idleBob;
+  if (type === "golem") y = 76 + idleBob;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // 共通方針：光源は左上。上面・左面を明るく、下面・右面を暗くする。
+  if (type === "slime") {
+    toneRect(-16, -15, 12, 3, "#f4e0ef", "#d9b7da", "#b88bb8");
+    toneRect(-20, -10, 3, 13, "#cfa4c7", "#b888b8", "#80537f", false);
+    toneRect(8, -18, 9, 3, "#8b6b96", "#71527f", "#594064");
+    toneRect(12, 10, 7, 8, "#80527d", "#62426f", "#493254");
+    toneRect(-14, 17, 28, 3, "#76507f", "#5b3d69", "#3f2d4d");
+    rect(-7, -6, 3, 2, "#fff4f8");
+    rect(-2, -4, 2, 2, "#f4d8ec");
+  }
+
+  if (type === "bat") {
+    const flap = Math.sin(time / 100) * 4;
+    toneRect(-39, -4 + flap, 5, 22, "#74698a", "#594f72", "#37314f");
+    toneRect(-34, -8 + flap, 7, 3, "#988ca8", "#75698e", "#504666");
+    toneRect(-29, 18 + flap, 7, 3, "#493f59", "#2f2b45", "#211d31");
+    toneRect(34, -4 - flap, 5, 22, "#74698a", "#594f72", "#37314f");
+    toneRect(27, -8 - flap, 7, 3, "#988ca8", "#75698e", "#504666");
+    toneRect(22, 18 - flap, 7, 3, "#493f59", "#2f2b45", "#211d31");
+    rect(-11, -20, 7, 3, "#826d94");
+    rect(4, -20, 7, 3, "#705f87");
+    rect(-8, 14, 3, 8, "#a89cae");
+    rect(5, 14, 3, 8, "#938992");
+  }
+
+  if (type === "mandraga") {
+    rect(-10, -34, 5, 11, "#a8bf79");
+    rect(2, -37, 5, 12, "#9fb974");
+    rect(-22, -10, 7, 3, "#73905a");
+    rect(14, -8, 7, 3, "#5b794b");
+    rect(-18, 8, 6, 10, "#537045");
+    rect(12, 9, 6, 9, "#48613e");
+    rect(-12, 17, 20, 3, "#435a39");
+    rect(-4, -4, 3, 9, "#91ad68");
+    rect(7, 1, 3, 7, "#839e5f");
+  }
+
+  if (type === "wolf") {
+    rect(-19, -24, 10, 3, "#9da3ad");
+    rect(-22, -20, 5, 7, "#7f8795");
+    rect(5, -20, 5, 7, "#596173");
+    rect(-26, -6, 8, 3, "#697182");
+    rect(13, -2, 7, 3, "#3b4356");
+    rect(-10, -2, 15, 3, "#8b929d");
+    rect(-6, 4, 11, 4, "#343a4b");
+    rect(-22, 18, 8, 4, "#515a6c");
+    rect(11, 19, 8, 4, "#313849");
+    rect(-15, 27, 7, 2, "#303646");
+    rect(5, 27, 7, 2, "#2a3040");
+  }
+
+  if (type === "phantom") {
+    rect(-15, -29, 12, 3, "#9890b4");
+    rect(-22, -22, 5, 12, "#7b739d");
+    rect(15, -25, 5, 12, "#665e87");
+    rect(-24, 1, 5, 12, "#746d95");
+    rect(19, 4, 5, 11, "#575178");
+    rect(-16, 20, 12, 3, "#5a547c");
+    rect(7, 21, 10, 3, "#4e496e");
+    rect(-9, -18, 4, 3, "#fff1b0");
+    rect(7, -18, 4, 3, "#fff1b0");
+  }
+
+  if (type === "golem") {
+    rect(-25, -26, 16, 3, "#a2a6ae");
+    rect(-28, -18, 8, 10, "#7e838e");
+    rect(14, -22, 10, 3, "#5c626e");
+    rect(-25, 1, 9, 4, "#666c77");
+    rect(18, 3, 10, 4, "#505663");
+    rect(-17, 10, 6, 16, "#696f7a");
+    rect(17, 11, 6, 15, "#4b515e");
+    rect(-27, 30, 10, 3, "#4e5562");
+    rect(17, 29, 10, 3, "#454b57");
+    rect(-2, -8, 3, 6, "#d7d9dc");
+    rect(5, 18, 4, 2, "#8a6b54");
+  }
+
+  if (type === "dragon") {
+    // 翼：上端にハイライト、内側と下端を暗く。
+    for (const pts of [
+      [-42, -22, 12, 2, "#756b9b"],
+      [-39, -14, 14, 2, "#554d7c"],
+      [-34, -5, 12, 2, "#463e68"],
+      [30, -22, 12, 2, "#756b9b"],
+      [25, -14, 14, 2, "#554d7c"],
+      [23, -5, 12, 2, "#463e68"]
+    ]) rect(...pts);
+    rect(-14, -43, 7, 3, "#8e7290");
+    rect(7, -43, 7, 3, "#755a80");
+    rect(-11, -26, 22, 4, "#755c7c");
+    rect(-17, -5, 5, 3, "#8b6a86");
+    rect(12, -4, 5, 3, "#715474");
+    rect(-17, 10, 6, 3, "#604866");
+    rect(12, 11, 6, 3, "#4e3b59");
+    rect(-22, 23, 8, 8, "#40334f");
+    rect(16, 23, 8, 8, "#382d49");
+    rect(-4, 8, 8, 3, "#d8a3b3");
+    rect(-2, 13, 4, 5, "#bf7f98");
+  }
+
+  ctx.restore();
 }
 
 /* =========================================================
@@ -4102,128 +5004,97 @@ function drawSlime(
   scale
 ) {
   ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
 
-  ctx.translate(
-    x,
-    y
-  );
+  /* contact shadow */
+  rect(-28, 37, 56, 5, "#202337");
+  rect(-22, 36, 44, 3, "#2b2a40");
 
-  ctx.scale(
-    scale,
-    scale
-  );
+  /*
+    Pudding-like gel body.
+    The silhouette stays pixel-stepped, while the inside uses a smooth
+    multi-stop gradient so the volume reads as soft, glossy jelly rather
+    than a stack of hard color blocks.
+  */
+  ctx.save();
+  const bodyPath = new Path2D();
+  bodyPath.moveTo(-24, -22);
+  bodyPath.lineTo(-11, -22);
+  bodyPath.lineTo(-11, -26);
+  bodyPath.lineTo(10, -26);
+  bodyPath.lineTo(10, -22);
+  bodyPath.lineTo(21, -22);
+  bodyPath.lineTo(21, -15);
+  bodyPath.lineTo(26, -15);
+  bodyPath.lineTo(26, 15);
+  bodyPath.lineTo(22, 15);
+  bodyPath.lineTo(22, 22);
+  bodyPath.lineTo(14, 22);
+  bodyPath.lineTo(14, 27);
+  bodyPath.lineTo(-13, 27);
+  bodyPath.lineTo(-13, 24);
+  bodyPath.lineTo(-21, 24);
+  bodyPath.lineTo(-21, 19);
+  bodyPath.lineTo(-26, 19);
+  bodyPath.lineTo(-26, -14);
+  bodyPath.lineTo(-24, -14);
+  bodyPath.closePath();
 
-  rect(
-    -27,
-    37,
-    54,
-    5,
-    "#202337"
-  );
+  ctx.clip(bodyPath);
 
-  rect(
-    -24,
-    -25,
-    48,
-    55,
-    "#30294b"
-  );
+  const vertical = ctx.createLinearGradient(0, -26, 0, 28);
+  vertical.addColorStop(0, "#f4deef");
+  vertical.addColorStop(.16, "#e2bedc");
+  vertical.addColorStop(.36, "#c795c4");
+  vertical.addColorStop(.60, "#a36da8");
+  vertical.addColorStop(.80, "#82528d");
+  vertical.addColorStop(1, "#573765");
+  ctx.fillStyle = vertical;
+  ctx.fillRect(-31, -30, 62, 60);
 
-  rect(
-    -29,
-    -10,
-    58,
-    35,
-    "#30294b"
-  );
+  /* Slight left-to-right falloff for a round, glossy side */
+  const horizontal = ctx.createLinearGradient(-27, 0, 27, 0);
+  horizontal.addColorStop(0, "rgba(244,224,240,.48)");
+  horizontal.addColorStop(.24, "rgba(255,245,250,.10)");
+  horizontal.addColorStop(.56, "rgba(107,66,122,.00)");
+  horizontal.addColorStop(1, "rgba(45,25,58,.30)");
+  ctx.fillStyle = horizontal;
+  ctx.fillRect(-31, -30, 62, 60);
+  ctx.restore();
 
-  rect(
-    -20,
-    -20,
-    40,
-    44,
-    "#8a6095"
-  );
+  /* Rounded specular highlight — stepped pixels over the smooth volume */
+  rect(-17, -18, 10, 3, "#fff8fc");
+  rect(-20, -14, 6, 4, "#f9edf6");
+  rect(-21, -9, 3, 6, "#f2dcef");
+  rect(-11, -5, 3, 2, "#ffffff");
+  rect(-7, -20, 4, 2, "#ffeaf7");
 
-  rect(
-    -24,
-    -6,
-    48,
-    26,
-    "#8a6095"
-  );
+  /* gentle lower translucency */
+  ctx.save();
+  ctx.globalAlpha = .42;
+  rect(-13, 17, 26, 3, "#7a4b85");
+  ctx.globalAlpha = .24;
+  rect(-8, 22, 16, 2, "#4b2d5b");
+  ctx.restore();
 
-  rect(
-    -15,
-    -16,
-    12,
-    5,
-    "#b893b0"
-  );
+  /* eyes */
+  rect(-12, -2, 7, 10, "#262438");
+  rect(6, -2, 7, 10, "#262438");
+  rect(-10, 0, 2, 2, "#f7eaf0");
+  rect(8, 0, 2, 2, "#f7eaf0");
+  rect(-10, 0, 1, 1, "#ffffff");
+  rect(8, 0, 1, 1, "#ffffff");
 
-  rect(
-    -20,
-    -10,
-    5,
-    14,
-    "#b893b0"
-  );
+  /* mouth */
+  rect(-4, 12, 9, 3, "#3b2d45");
+  rect(-2, 12, 5, 1, "#b987ad");
 
-  rect(
-    -12,
-    -2,
-    7,
-    10,
-    "#262438"
-  );
-
-  rect(
-    6,
-    -2,
-    7,
-    10,
-    "#262438"
-  );
-
-  rect(
-    -10,
-    0,
-    3,
-    3,
-    "#e8d8dc"
-  );
-
-  rect(
-    8,
-    0,
-    3,
-    3,
-    "#e8d8dc"
-  );
-
-  rect(
-    -4,
-    12,
-    9,
-    3,
-    "#3a2d45"
-  );
-
-  rect(
-    12,
-    -30,
-    6,
-    10,
-    "#d6a95e"
-  );
-
-  rect(
-    9,
-    -25,
-    12,
-    4,
-    "#d6a95e"
-  );
+  /* crown */
+  rect(12, -30, 6, 10, "#c6903f");
+  rect(9, -25, 12, 4, "#c6903f");
+  rect(13, -30, 3, 3, "#f4cf78");
+  rect(17, -27, 2, 2, "#8e642d");
 
   ctx.restore();
 }
@@ -4999,6 +5870,31 @@ function drawParticles() {
   }
 
   ctx.globalAlpha = 1;
+}
+
+function drawPlayerDamageEffect(time) {
+  const remain = battleState.playerDamageUntil - time;
+  if (remain <= 0) return;
+
+  ctx.save();
+
+  if (battleState.playerDamageFlashUntil > time) {
+    ctx.globalAlpha = Math.min(0.30, (battleState.playerDamageFlashUntil - time) / 180);
+    ctx.fillStyle = "#e35d72";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+
+  ctx.globalAlpha = Math.min(1, remain / 260);
+  pixelText(
+    "-1",
+    battleState.playerDamageX + 14,
+    battleState.playerDamageY - (520 - remain) / 28,
+    13,
+    "#ffb1a6",
+    "center"
+  );
+
+  ctx.restore();
 }
 
 /* =========================================================
