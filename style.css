@@ -1491,3 +1491,142 @@ input:focus {
   -webkit-text-fill-color:#332b46 !important;
   text-shadow:none !important;
 }
+
+
+/* Mobile stage cards: align the stage information with the top of the illustration. */
+@media (max-width: 700px) {
+  .stage-select-card {
+    grid-template-columns: 92px minmax(0, 1fr) !important;
+    grid-template-areas:
+      "art main"
+      "action main" !important;
+    align-items: start !important;
+    align-content: start;
+    gap: 9px 12px !important;
+    padding: 13px !important;
+  }
+
+  .stage-select-card .stage-art {
+    grid-area: art;
+    width: 92px;
+    height: 78px;
+    align-self: start;
+  }
+
+  .stage-select-card .stage-select-number {
+    display: none;
+  }
+
+  .stage-select-card .stage-select-main {
+    grid-area: main;
+    min-width: 0;
+    align-self: start;
+    padding-top: 0;
+    margin-top: 0;
+  }
+
+  .stage-select-card .stage-select-kicker {
+    margin: 0 0 3px;
+    line-height: 1.25;
+  }
+
+  .stage-select-card .stage-select-main h3 {
+    margin-top: 0;
+    font-size: 16px;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  .stage-select-card .stage-select-main h3 span {
+    display: block;
+    margin: 2px 0 0;
+  }
+
+  .stage-select-card .stage-select-main p {
+    line-height: 1.55;
+  }
+
+  .stage-select-card .stage-enemy-line {
+    margin-top: 7px;
+    line-height: 1.45;
+  }
+
+  .stage-select-card .stage-start-btn {
+    grid-area: action;
+    width: 92px;
+    min-width: 0;
+    justify-self: stretch;
+    align-self: start;
+    box-sizing: border-box;
+    padding: 9px 4px;
+    font-size: 9px;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 380px) {
+  .stage-select-card {
+    grid-template-columns: 82px minmax(0, 1fr) !important;
+    column-gap: 10px !important;
+    padding: 10px !important;
+  }
+  .stage-select-card .stage-art,
+  .stage-select-card .stage-start-btn {
+    width: 82px;
+  }
+  .stage-select-card .stage-select-main h3 {
+    font-size: 14px;
+  }
+  .stage-select-card .stage-select-main p {
+    font-size: 10px;
+  }
+}
+
+
+/* ================= RECOVERY ELIXIR ================= */
+.recovery-item-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.recovery-elixir-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  max-width: 100%;
+  padding: 8px 12px;
+  color: #6c5a82;
+  background: #f4eff8;
+  border: 1px solid #c9b9d9;
+  border-bottom: 3px solid #b6a1cb;
+  font-family: monospace;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background .12s, transform .12s, opacity .12s;
+}
+.recovery-elixir-btn small {
+  color: #8e819d;
+  font-family: sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+}
+.recovery-elixir-btn.can-use {
+  color: #4d326d;
+  background: #eee2ff;
+  border-color: #9f7bc4;
+  box-shadow: 0 0 0 2px rgba(159,123,196,.12);
+}
+.recovery-elixir-btn.can-use:hover { background: #e2d0fb; }
+.recovery-elixir-btn:active:not(:disabled) { transform: translateY(2px); }
+.recovery-elixir-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+@media (max-width: 480px) {
+  .recovery-item-row { justify-content: stretch; }
+  .recovery-elixir-btn { width: 100%; align-items: center; }
+}
