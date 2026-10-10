@@ -755,6 +755,62 @@ const MONSTERS = [
     boss: false
   },
   {
+    id: "skeleton-knight",
+    name: "SKELETON KNIGHT",
+    type: "skeleton-knight",
+    description: "草原の古戦場をさまよう骸骨騎士。朽ちた盾と剣で侵入者を迎え撃つ。",
+    rarity: "UNCOMMON",
+    boss: false
+  },
+  {
+    id: "magma-snail",
+    name: "MAGMA SNAIL",
+    type: "magma-snail",
+    description: "溶岩をまとった黒曜石の殻を背負う火山の魔物。殻の割れ目から灼熱の光が漏れる。",
+    rarity: "UNCOMMON",
+    boss: false
+  },
+  {
+    id: "firebird",
+    name: "FIREBIRD",
+    type: "firebird",
+    description: "燃えさかる翼と炎の尾羽を持つ火の鳥。羽ばたくたび火の粉が舞う。",
+    rarity: "RARE",
+    boss: false
+  },
+  {
+    id: "snowman-devil",
+    name: "SNOWMAN DEVIL",
+    type: "snowman-devil",
+    description: "角と小さな悪魔の翼を持つ雪だるま。人をからかうような笑みで吹雪を呼ぶ。",
+    rarity: "UNCOMMON",
+    boss: false
+  },
+  {
+    id: "chimera",
+    name: "CHIMERA",
+    type: "chimera",
+    description: "獅子の頭と山羊の角、蛇の尾を持つ草原の幻獣。三つの獣の力を宿す。",
+    rarity: "BOSS",
+    boss: true
+  },
+  {
+    id: "world-tree-tortoise",
+    name: "WORLD TREE TORTOISE",
+    type: "tree-turtle",
+    description: "甲羅に古代の大樹を背負う森の守護者。大地と森の生命力を操る。",
+    rarity: "BOSS",
+    boss: true
+  },
+  {
+    id: "snow-goddess",
+    name: "SNOW GODDESS",
+    type: "snow-goddess",
+    description: "雪原に君臨する氷雪の女神。白銀の衣から吹雪と結晶を生み出す。",
+    rarity: "BOSS",
+    boss: true
+  },
+  {
     id: "astral-dragon",
     name: "ASTRAL DRAGON",
     type: "dragon",
@@ -792,11 +848,11 @@ function registerMonsterEncounter(monsterId) {
    ========================================================= */
 
 const stages = [
-  { id:"grassland", name:"GRASSLAND", jp:"草原", theme:"grassland", description:"風に揺れる草原。旅の始まりとなる最初のエリア。", enemies:["moon-slime","night-wolf"], boss:"astral-dragon" },
-  { id:"forest", name:"FOREST", jp:"森林", theme:"forest", description:"深い森の奥へ。木々の間から古代の魔物が姿を現す。", enemies:["forest-mandraga","shadow-bat"], boss:"astral-dragon" },
+  { id:"grassland", name:"GRASSLAND", jp:"草原", theme:"grassland", description:"風に揺れる草原。旅の始まりとなる最初のエリア。", enemies:["moon-slime","skeleton-knight"], boss:"chimera" },
+  { id:"forest", name:"FOREST", jp:"森林", theme:"forest", description:"深い森の奥へ。木々の間から古代の魔物が姿を現す。", enemies:["forest-mandraga","shadow-bat"], boss:"world-tree-tortoise" },
   { id:"beach", name:"BEACH", jp:"砂浜", theme:"beach", description:"青い海と白い砂浜。潮騒の向こうに海の魔物が潜む。", enemies:["coral-shrimp","tidal-fish"], boss:"poseidon" },
-  { id:"volcano", name:"VOLCANO", jp:"火山", theme:"volcano", description:"灼熱の大地。溶岩が流れる火口へ進め。", enemies:["night-wolf","iron-golem"], boss:"astral-dragon" },
-  { id:"snowfield", name:"SNOWFIELD", jp:"雪原", theme:"snowfield", description:"吹雪に閉ざされた白銀の世界。亡霊の気配が漂う。", enemies:["phantom","night-wolf"], boss:"astral-dragon" },
+  { id:"volcano", name:"VOLCANO", jp:"火山", theme:"volcano", description:"灼熱の大地。溶岩が流れる火口へ進め。", enemies:["magma-snail","firebird"], boss:"astral-dragon" },
+  { id:"snowfield", name:"SNOWFIELD", jp:"雪原", theme:"snowfield", description:"吹雪に閉ざされた白銀の世界。亡霊の気配が漂う。", enemies:["phantom","snowman-devil"], boss:"snow-goddess" },
   { id:"ruins", name:"ANCIENT RUINS", jp:"遺跡", theme:"ruins", description:"世界の秘密が眠る古代遺跡。最後の魔王との決戦の地。", enemies:["iron-golem","phantom"], boss:"void-emperor", final:true }
 ];
 
@@ -860,6 +916,8 @@ let battleState = {
   playerDamageX: 0,
   playerDamageY: 0,
   defeat: 0,
+  defeatStartedAt: 0,
+  defeatType: "",
   particles: []
 };
 
@@ -1183,17 +1241,21 @@ function getStudyStreak() {
 function updateStudyStreak() {
   studyStreak = getStudyStreak();
 
-  // 7日、14日、21日…の連続学習で1個ずつ獲得。
-  const rewardCount = Math.floor(studyStreak / 7);
-  const rewardKey = `reward-${studyStreak - (studyStreak % 7)}`;
-  const claimed = localStorage.getItem("pixelEnglishRewardClaim") || "";
+  // 2日連続ログインごとにリカバリーエリクサーを1個獲得。
+  const rewardMilestone = studyStreak - (studyStreak % 2);
+  const rewardKey = `login-bonus-${rewardMilestone}`;
+  const savedClaim = localStorage.getItem("pixelEnglishLoginBonusClaimV2") || "";
+  const legacyClaim = localStorage.getItem("pixelEnglishRewardClaim") || "";
+  // 旧バージョンですでに同じ日数の報酬を受け取っていた場合は重複配布しない。
+  const claimed = savedClaim || (legacyClaim === `reward-${rewardMilestone}` ? rewardKey : "");
 
-  if (rewardCount > 0 && claimed !== rewardKey) {
+  if (studyStreak >= 2 && claimed !== rewardKey) {
     items.recovery += 1;
-    localStorage.setItem("pixelEnglishRewardClaim", rewardKey);
-    showToast("7日連続学習達成！\nリカバリーエリクサーを獲得！");
+    localStorage.setItem("pixelEnglishLoginBonusClaimV2", rewardKey);
+    showToast("2日連続ログインボーナス！\nリカバリーエリクサーを獲得！");
     playRewardSound();
   }
+  updateRecoveryButton();
 }
 
 function playRewardSound() {
@@ -1304,6 +1366,7 @@ function showScreen(id) {
   );
 
   currentScreen = id;
+  updateRecoveryButton();
 
   window.scrollTo({
     top: 0,
@@ -1462,7 +1525,7 @@ function createExtraScreens() {
         <div><div class="extra-modal-sub">DAILY TRAINING RECORD</div><h2 class="extra-modal-title">STUDY CALENDAR</h2></div>
         <button class="extra-close" data-extra-close>CLOSE ×</button>
       </div>
-      <div class="reward-box"><div class="reward-icon">✦</div><div class="reward-copy"><strong id="recoveryCount">RECOVERY ELIXIR ×0</strong><small id="rewardMessage">7日連続学習でアイテムを獲得！</small></div></div>
+      <div class="reward-box"><div class="reward-icon">✦</div><div class="reward-copy"><strong id="recoveryCount">RECOVERY ELIXIR ×0</strong><small id="rewardMessage">2日連続ログインでエリクサーを獲得！</small></div></div>
       <div class="extra-panel">
         <div class="calendar-head"><button id="calendarPrev">◀</button><strong id="calendarTitle"></strong><button id="calendarNext">▶</button></div>
         <div id="calendarGrid" class="calendar-grid"></div>
@@ -1718,6 +1781,8 @@ function createMonsterBookFrames(type, monsterMeta = {}) {
   const previousSelectedStageIndex = selectedStageIndex;
   const previousFlashUntil = battleState.flashUntil;
   const previousDefeat = battleState.defeat;
+  const previousDefeatStartedAt = battleState.defeatStartedAt;
+  const previousDefeatType = battleState.defeatType;
   const previousAttack = battleState.attack;
 
   const previewStage = {
@@ -1741,6 +1806,8 @@ function createMonsterBookFrames(type, monsterMeta = {}) {
     currentStage = 0;
     battleState.flashUntil = 0;
     battleState.defeat = 0;
+    battleState.defeatStartedAt = 0;
+    battleState.defeatType = "";
     battleState.attack = 0;
     ctx = previewCtx;
 
@@ -1765,6 +1832,8 @@ function createMonsterBookFrames(type, monsterMeta = {}) {
     selectedStageIndex = previousSelectedStageIndex;
     battleState.flashUntil = previousFlashUntil;
     battleState.defeat = previousDefeat;
+    battleState.defeatStartedAt = previousDefeatStartedAt;
+    battleState.defeatType = previousDefeatType;
     battleState.attack = previousAttack;
   }
 
@@ -1913,11 +1982,11 @@ function renderCalendar() {
   }
 
   if ($("#rewardMessage")) {
-    const remain = Math.max(0, 7 - (studyStreak % 7));
+    const remain = Math.max(0, 2 - (studyStreak % 2));
     $("#rewardMessage").textContent =
-      studyStreak > 0 && studyStreak % 7 === 0
-        ? "7日連続達成！報酬獲得済み！"
-        : `現在 ${studyStreak}日連続。あと ${remain}日で報酬！`;
+      studyStreak > 0 && studyStreak % 2 === 0
+        ? "2日連続ログイン達成！報酬獲得済み！"
+        : `現在 ${studyStreak}日連続ログイン。あと ${remain}日で報酬！`;
   }
 }
 
@@ -2596,6 +2665,7 @@ function updatePlayerHp() {
   if ($("#playerHpText")) {
     $("#playerHpText").textContent = `${playerHp} / ${PLAYER_MAX_HP}`;
   }
+  updateRecoveryButton();
 }
 
 function startPlayerDamageAnimation() {
@@ -2610,10 +2680,23 @@ function failQuestByDamage() {
   stopQuestionTimer();
   answerLocked = true;
   if ($("#battleMessage")) {
-    $("#battleMessage").textContent = "PLAYER DOWN... QUEST FAILED";
+    $("#battleMessage").textContent = "PLAYER DOWN... USE AN ELIXIR TO RECOVER";
   }
   startPlayerDamageAnimation();
-  setTimeout(() => finishQuiz(true), 850);
+  updateRecoveryButton();
+  setTimeout(() => {
+    // HPが0になった直後でも、所持エリクサーで回復できていれば戦闘を継続する。
+    if (playerHp <= 0) {
+      finishQuiz(true);
+      return;
+    }
+    answerLocked = false;
+    if (currentIndex >= quizWords.length) {
+      finishQuiz();
+    } else {
+      nextQuestion();
+    }
+  }, 1200);
 }
 
 /* =========================================================
@@ -2834,6 +2917,7 @@ function nextQuestion() {
   );
 
   startQuestionTimer();
+  updateRecoveryButton();
 
   if ($("#battleMessage")) {
     $("#battleMessage")
@@ -3029,34 +3113,60 @@ function ensureQuestionWeakButton() {
    RECOVERY ITEM
    ========================================================= */
 
-function tryRecoveryItem() {
-  if (
-    items.recovery <= 0
-  ) {
-    return false;
+function updateRecoveryButton() {
+  const button = $("#useRecoveryElixirBtn");
+  if (!button) return;
+
+  const label = $("#recoveryButtonLabel");
+  if (label) {
+    label.textContent = `✦ RECOVERY ELIXIR ×${Math.max(0, items.recovery || 0)}`;
   }
 
-  const confirmed =
-    window.confirm(
-      "リカバリーエリクサーを使いますか？\n\n" +
-      "今回のMISSを無効にして、連勝を維持します。"
-    );
+  const isBattle = currentScreen === "quizScreen";
+  const canUse = isBattle && items.recovery > 0 && playerHp < PLAYER_MAX_HP;
+  button.disabled = !canUse;
+  button.classList.toggle("can-use", canUse);
+  button.title = playerHp >= PLAYER_MAX_HP
+    ? "ミスでHPが減っている時に使用できます。"
+    : (items.recovery <= 0 ? "エリクサーを所持していません。" : "HPを1回復し、追加の問題を1問受け取ります。");
+}
 
-  if (!confirmed) {
-    return false;
+function useRecoveryElixir() {
+  // 戦闘中かつ、ミスでHPが減っている場合のみ使用可能。
+  if (currentScreen !== "quizScreen" || items.recovery <= 0 || playerHp >= PLAYER_MAX_HP) {
+    updateRecoveryButton();
+    return;
   }
+
+  const confirmed = window.confirm(
+    "リカバリーエリクサーを使いますか？\n\n" +
+    "HPを1回復し、ミスで失ったチャンスを補う追加問題を1問受け取ります。"
+  );
+  if (!confirmed) return;
+
+  // HPを1回復し、消費した問題枠を補うための追加問題を1問、末尾に加える。
+  // まだ出題していない単語を優先し、すべて使用済みなら登録語から選ぶ。
+  const allWords = normalizeWords(words);
+  const usedKeys = new Set(quizWords.map(word => `${word.en.toLowerCase()}::${word.jp}`));
+  const unusedWords = allWords.filter(word => !usedKeys.has(`${word.en.toLowerCase()}::${word.jp}`));
+  const bonusPool = unusedWords.length ? unusedWords : allWords;
+  const bonusQuestion = shuffle(bonusPool)[0];
+  if (bonusQuestion) quizWords.push({ ...bonusQuestion });
 
   items.recovery--;
-
+  playerHp = Math.min(PLAYER_MAX_HP, playerHp + 1);
   saveGameData();
-
+  updatePlayerHp();
+  // 問題数の分母が増えるため、進捗表示をその場で更新。
+  if ($("#questionProgress")) {
+    $("#questionProgress").style.width = `${(currentIndex / quizWords.length) * 100}%`;
+  }
   playRewardSound();
+  showToast("エリクサー使用！ HPを1回復＋追加問題を1問獲得！");
 
-  showToast(
-    "リカバリーエリクサーを使用した！"
-  );
-
-  return true;
+  if (playerHp > 0 && $("#battleMessage")?.textContent === "PLAYER DOWN... USE AN ELIXIR TO RECOVER") {
+    $("#battleMessage").textContent = "RECOVERED! 戦闘続行！";
+  }
 }
 
 /* =========================================================
@@ -3122,41 +3232,7 @@ function handleAnswer(
   if (!isCorrect) {
     recordWrongWord(current);
 
-    /*
-      まずリカバリーアイテムを確認。
-      アイテムを使った場合はMISS扱いにしない。
-    */
-
-    if (
-      tryRecoveryItem()
-    ) {
-      clickedButton.classList.add(
-        "correct"
-      );
-
-      $("#battleMessage")
-        .textContent =
-          "RECOVERED!";
-
-      currentIndex++;
-
-      saveStats();
-      renderStats();
-
-      setTimeout(() => {
-        if (
-          currentIndex >=
-          quizWords.length
-        ) {
-          finishQuiz();
-        } else {
-          nextQuestion();
-        }
-      }, 850);
-
-      return;
-    }
-
+    // ミスは通常どおりHPに反映。エリクサーは戦闘中の専用ボタンで手動使用する。
     playWrongSound();
 
     clickedButton.classList.add(
@@ -3378,7 +3454,7 @@ function finishQuiz(failed = false) {
   if ($("#resultCorrect")) {
     $("#resultCorrect")
       .textContent =
-        `${correctCount} / 10`;
+        `${correctCount} / ${quizWords.length}`;
   }
 
   if ($("#resultBest")) {
@@ -3400,7 +3476,7 @@ function finishQuiz(failed = false) {
         ? "STAGE FAILED"
         : (stageCleared
           ? (stages[selectedStageIndex]?.final ? "FINAL STAGE CLEAR" : "STAGE CLEAR")
-          : (correctCount === 10 ? "PERFECT CLEAR" : "QUEST COMPLETE"));
+          : (correctCount === quizWords.length ? "PERFECT CLEAR" : "QUEST COMPLETE"));
   }
 
   showScreen(
@@ -3458,6 +3534,8 @@ function resetBattleAnimation() {
   battleState.playerDamageX = 0;
   battleState.playerDamageY = 0;
   battleState.defeat = 0;
+  battleState.defeatStartedAt = 0;
+  battleState.defeatType = "";
   battleState.particles = [];
 
   if (
@@ -3483,21 +3561,43 @@ function startAttackAnimation() {
 }
 
 function startDefeatAnimation() {
+  const stage = activeStages[currentStage];
   battleState.defeat = 1;
+  battleState.defeatStartedAt = performance.now();
+  battleState.defeatType = stage?.type || "";
 
-  spawnParticles(
-    235,
-    82,
-    38
-  );
+  const defeatPalettes = {
+    slime: ["#e8b8ec", "#b77ac8", "#fff0fb", "#7b4a88"],
+    bat: ["#c6b8e6", "#7666a8", "#f2e5ff", "#39304f"],
+    mandraga: ["#b7d875", "#6e9b49", "#f3e7ad", "#385b3f"],
+    wolf: ["#bbc6d6", "#66758b", "#ffffff", "#384154"],
+    phantom: ["#ddd2f6", "#9e91c7", "#fff5ff", "#615582"],
+    golem: ["#cbd0d8", "#858c9a", "#ffd07a", "#4b5261"],
+    shrimp: ["#ffb58c", "#e35c56", "#fff0c8", "#873149"],
+    fish: ["#abf3ed", "#40bacb", "#e4fff4", "#195e7a"],
+    poseidon: ["#9cebf0", "#e3c16d", "#ffffff", "#287a9a"],
+    dragon: ["#ff8a78", "#d82c3d", "#ffd8b3", "#6d1023"],
+    chimera: ["#f2c76b", "#bd7b35", "#fff0c1", "#527e43"],
+    "tree-turtle": ["#b7dd83", "#729d52", "#f2d69a", "#42633b"],
+    "snow-goddess": ["#f8ffff", "#9be8ff", "#d7b7bf", "#4b79a8"]
+  };
+  const type = stage?.monsterId === "void-emperor" || stage?.finalBoss ? "void-emperor" : (stage?.type || "");
+  const palette = type === "void-emperor"
+    ? ["#d78bf2", "#7850a1", "#6cece8", "#f6d27b", "#f18bd6"]
+    : (defeatPalettes[type] || ["#f0b76a", "#d66c93", "#78a6c6", "#e7d28a", "#a18ac2"]);
+
+  // First impact pop, then a second lighter burst gives the defeat a little depth.
+  spawnParticles(235, 78, 48, palette);
+  spawnParticles(235, 91, 18, ["#ffffff", palette[0], palette[1], palette[2] || "#e7d28a"]);
 }
 
 function spawnParticles(
   x,
   y,
-  count
+  count,
+  palette = null
 ) {
-  const colors = [
+  const colors = palette || [
     "#f0b76a",
     "#d66c93",
     "#78a6c6",
@@ -3692,12 +3792,12 @@ function drawBattle(time) {
 
     const backgroundTheme = currentDefinition.theme || currentDefinition.id;
     const saturationMap = {
-      grassland: 0.78,
-      forest: 0.72,
-      beach: 0.70,
-      volcano: 0.68,
-      snowfield: 0.76,
-      ruins: 0.74
+      grassland: 0.94,
+      forest: 0.93,
+      beach: 0.95,
+      volcano: 0.96,
+      snowfield: 0.94,
+      ruins: 0.98
     };
 
     backgroundCtx.filter = `saturate(${saturationMap[backgroundTheme] ?? 0.74})`;
@@ -3735,6 +3835,7 @@ function drawBattle(time) {
   mainCtx.setTransform(scale, 0, 0, scale, 0, 0);
   mainCtx.imageSmoothingEnabled = false;
 
+  drawStageAccentSparkles(currentDefinition.theme || currentDefinition.id, time, w, h);
   drawHero(time);
   drawEnemy(time);
   drawHeroFineDetails(time);
@@ -3781,30 +3882,33 @@ function drawBattle(time) {
 function drawBackgroundSparkles(theme, time, w, h) {
   if (!ctx) return;
 
+  // Soft, distant glints remain in the atmospheric background layer.
   const palettes = {
-    grassland: ["#fff3a6", "#ffffff", "#d8f6ff"],
-    forest: ["#d9ffb4", "#c6f8ec", "#f5f2b0"],
-    beach: ["#fff0a8", "#d9fff7", "#ffffff"],
-    volcano: ["#ffd38a", "#ff9e6b", "#fff0b8"],
-    snowfield: ["#e8fbff", "#bfeeff", "#ffffff"],
-    ruins: ["#e8c9ff", "#a9d4ff", "#fff0cb"]
+    grassland: ["#fff3a6", "#ffffff", "#d8f6ff", "#ffc9d9", "#b6f08f"],
+    forest: ["#d9ffb4", "#c6f8ec", "#f5f2b0", "#ffd5e8", "#8ce5d0"],
+    beach: ["#fff0a8", "#d9fff7", "#ffffff", "#ffb9a7", "#f5aee9"],
+    volcano: ["#ffd38a", "#ff9e6b", "#fff0b8", "#ff6d91", "#73e5e5"],
+    snowfield: ["#e8fbff", "#bfeeff", "#ffffff", "#e4c8ff", "#ffcce8"],
+    ruins: ["#e8c9ff", "#a9d4ff", "#fff0cb", "#ff9de5", "#70e8e7"]
   };
 
   const colors = palettes[theme] || palettes.grassland;
   const seeds = [
     [18, 26, 1], [46, 52, 1], [77, 33, 2], [104, 68, 1],
     [132, 24, 1], [158, 51, 2], [187, 31, 1], [214, 66, 1],
-    [244, 39, 2], [271, 72, 1], [298, 29, 1], [309, 102, 1]
+    [244, 39, 2], [271, 72, 1], [298, 29, 1], [309, 102, 1],
+    [33, 87, 1], [69, 21, 1], [119, 45, 1], [173, 80, 1],
+    [204, 18, 1], [260, 91, 1], [287, 49, 1], [142, 102, 1]
   ];
 
   for (let i = 0; i < seeds.length; i++) {
     const [baseX, baseY, size] = seeds[i];
-    const wave = time / (1050 + (i % 3) * 180) + i * 1.7;
+    const wave = time / (760 + (i % 4) * 190) + i * 1.37;
     const pulse = (Math.sin(wave) + 1) / 2;
-    if (pulse < 0.10) continue;
+    if (pulse < 0.16) continue;
 
-    const x = baseX + Math.sin(time / 1700 + i) * 1.2;
-    const y = baseY + Math.cos(time / 1900 + i * .7) * 1.0;
+    const x = Math.round(baseX + Math.sin(time / 1700 + i) * 1.2);
+    const y = Math.round(baseY + Math.cos(time / 1900 + i * .7) * 1.0);
     const alpha = .035 + pulse * .12;
     const c = colors[i % colors.length];
 
@@ -3812,11 +3916,118 @@ function drawBackgroundSparkles(theme, time, w, h) {
     ctx.globalAlpha = alpha;
     rect(x + size, y, size, size, c);
     rect(x, y + size, size, size, c);
-    if (size > 1 && pulse > .55) {
-      rect(x + size, y + size, size, size, c);
-    }
+    if (size > 1 && pulse > .55) rect(x + size, y + size, size, size, c);
     ctx.restore();
   }
+}
+
+// Crisp foreground pixel glints are composited after the background haze,
+// so each stage keeps its pixel-art sparkle instead of blurring into a wash.
+function drawStageAccentSparkles(theme, time, w, h) {
+  if (!ctx) return;
+  const palettes = {
+    grassland: ["#fff5a6", "#ffb7d0", "#8af0db", "#d8ff8f", "#ffffff"],
+    forest: ["#c7ff8f", "#72f0c4", "#fff09a", "#ffb7d5", "#f4fff7"],
+    beach: ["#fff29a", "#7ff5eb", "#ff9fbd", "#ffffff", "#b8f5ff"],
+    volcano: ["#ffdf79", "#ff7d66", "#ffb5df", "#7ef0e9", "#fff4c3"],
+    snowfield: ["#f4ffff", "#8deaff", "#d5baff", "#ffbfe5", "#ffffff"],
+    ruins: ["#e0b4ff", "#77ebf2", "#ffb9ed", "#ffe69a", "#ffffff"]
+  };
+  const colors = palettes[theme] || palettes.grassland;
+  const points = [
+    [24, 37], [51, 67], [80, 25], [98, 47], [125, 82], [146, 30],
+    [170, 61], [193, 22], [222, 46], [246, 73], [275, 33], [298, 58],
+    [39, 102], [88, 93], [184, 104], [285, 109], [63, 42], [115, 18],
+    [158, 92], [208, 80], [260, 18], [307, 88], [18, 73], [232, 104]
+  ];
+
+  ctx.save();
+  for (let i = 0; i < points.length; i++) {
+    const [bx, by] = points[i];
+    const pulse = (Math.sin(time / (185 + (i % 5) * 47) + i * 1.83) + 1) / 2;
+    if (pulse < 0.12) continue;
+    const driftX = Math.round(Math.sin(time / 640 + i * 0.6) * 1.2);
+    const driftY = Math.round(Math.cos(time / 810 + i * 0.9) * 1.0);
+    const x = bx + driftX;
+    const y = by + driftY;
+    const color = colors[i % colors.length];
+    ctx.globalAlpha = 0.22 + pulse * 0.62;
+
+    if (i % 3 === 0) {
+      // Four-point pixel star: broad enough to sparkle, still fully blocky.
+      rect(x - 1, y, 3, 1, color);
+      rect(x, y - 1, 1, 3, color);
+      if (pulse > 0.64) {
+        rect(x, y, 1, 1, "#ffffff");
+        rect(x + 2, y - 2, 1, 1, colors[(i + 2) % colors.length]);
+      }
+    } else if (i % 3 === 1) {
+      rect(x, y, pulse > 0.72 ? 2 : 1, pulse > 0.72 ? 2 : 1, color);
+      if (pulse > 0.76) rect(x + 2, y - 1, 1, 1, "#ffffff");
+    } else {
+      rect(x, y, 2, 1, color);
+      rect(x + 1, y - 1, 1, 3, color);
+      if (pulse > 0.7) rect(x + 1, y, 1, 1, "#ffffff");
+    }
+  }
+  ctx.restore();
+}
+
+function drawStageColorWash(theme, w, h) {
+  if (!ctx) return;
+  const palettes = {
+    grassland: {
+      vertical: [[0, "rgba(255,218,132,.23)"], [.42, "rgba(155,213,180,.08)"], [1, "rgba(39,104,55,.24)"]],
+      horizontal: [[0, "rgba(255,224,143,.11)"], [.52, "rgba(114,198,181,.04)"], [1, "rgba(85,151,211,.12)"]],
+      glow: [246, 32, "rgba(255,224,135,.20)"]
+    },
+    forest: {
+      vertical: [[0, "rgba(92,177,145,.22)"], [.48, "rgba(45,126,91,.12)"], [1, "rgba(16,62,47,.28)"]],
+      horizontal: [[0, "rgba(139,190,101,.14)"], [.55, "rgba(41,118,88,.04)"], [1, "rgba(47,135,113,.17)"]],
+      glow: [115, 66, "rgba(151,214,111,.15)"]
+    },
+    beach: {
+      vertical: [[0, "rgba(130,226,245,.25)"], [.48, "rgba(57,174,196,.12)"], [.70, "rgba(255,220,145,.10)"], [1, "rgba(233,184,102,.27)"]],
+      horizontal: [[0, "rgba(93,190,215,.12)"], [.50, "rgba(255,255,231,.04)"], [1, "rgba(255,209,123,.16)"]],
+      glow: [252, 25, "rgba(255,237,166,.23)"]
+    },
+    volcano: {
+      vertical: [[0, "rgba(82,42,82,.26)"], [.45, "rgba(171,63,58,.12)"], [.78, "rgba(229,86,47,.17)"], [1, "rgba(87,25,34,.29)"]],
+      horizontal: [[0, "rgba(95,47,99,.14)"], [.56, "rgba(220,77,48,.07)"], [1, "rgba(255,150,71,.15)"]],
+      glow: [76, 87, "rgba(255,112,54,.21)"]
+    },
+    snowfield: {
+      vertical: [[0, "rgba(193,230,255,.24)"], [.45, "rgba(116,192,230,.12)"], [.78, "rgba(226,244,250,.16)"], [1, "rgba(250,255,255,.28)"]],
+      horizontal: [[0, "rgba(153,208,245,.13)"], [.52, "rgba(245,252,255,.07)"], [1, "rgba(171,229,239,.15)"]],
+      glow: [166, 48, "rgba(229,252,255,.23)"]
+    },
+    ruins: {
+      vertical: [[0, "rgba(112,79,174,.27)"], [.42, "rgba(63,81,151,.14)"], [.74, "rgba(76,49,123,.16)"], [1, "rgba(28,19,53,.30)"]],
+      horizontal: [[0, "rgba(77,68,150,.12)"], [.52, "rgba(71,98,183,.06)"], [1, "rgba(167,82,180,.15)"]],
+      glow: [256, 28, "rgba(173,116,226,.17)"]
+    }
+  };
+  const palette = palettes[theme] || palettes.grassland;
+  ctx.save();
+  // source-atop tints only the already-painted background, never drawing beyond its silhouette.
+  ctx.globalCompositeOperation = "source-atop";
+  let gradient = ctx.createLinearGradient(0, 0, 0, h);
+  for (const [stop, color] of palette.vertical) gradient.addColorStop(stop, color);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, w, h);
+
+  gradient = ctx.createLinearGradient(0, 0, w, 0);
+  for (const [stop, color] of palette.horizontal) gradient.addColorStop(stop, color);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, w, h);
+
+  const [gx, gy, glowColor] = palette.glow;
+  const glow = ctx.createRadialGradient(gx, gy, 2, gx, gy, 66);
+  glow.addColorStop(0, glowColor);
+  glow.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
 }
 
 function drawStageBackground(theme, time, w, h) {
@@ -4021,6 +4232,10 @@ function drawStageBackground(theme, time, w, h) {
     rect(203,115,3,2,"#a09ce0");
   }
 
+  // ステージごとの色相グラデーションを背景全体に重ね、空・遠景・地面に色の深みを出す。
+  // 輪郭をぼかさず、色だけを穏やかに混ぜてピクセルのシルエットを保つ。
+  drawStageColorWash(theme, w, h);
+
   // 背景の細密ピクセルディテール。キャラクターの背後にのみ描画し、
   // セレクト画面のような「小さい情報の積み重ね」を増やす。
   drawStageFineDetails(theme, time, w, h);
@@ -4207,199 +4422,20 @@ function drawStageFineDetails(theme, time, w, h) {
    HERO
    ========================================================= */
 
-function drawHero(time) {
-  const attack = battleState.attack;
-  const idleFrame = getIdleFrame(time);
-
-  /*
-    2.5〜3頭身くらいのデフォルメ勇者。
-    足元は完全固定、肩〜頭だけ4フレームで呼吸する。
-  */
-  const breath = [0, -1, 0, 1][idleFrame];
-  const capeSwing = [0, 1, 2, 1][idleFrame];
-
-  let swordPhase = 0;
-  if (attack > 0) {
-    const elapsed = 1 - attack;
-    swordPhase = Math.min(1, elapsed * 1.9);
-  }
-
-  const damageActive = battleState.playerDamageUntil > time;
-  const damageShake = damageActive
-    ? (Math.floor((battleState.playerDamageUntil - time) / 45) % 2 === 0 ? -2 : 2)
-    : 0;
-
-  const x = 58 + damageShake;
-  const y = 83 + damageShake;
-  const upperY = y + breath;
-
-  /* =========================
-     GROUND SHADOW — 固定
-     ========================= */
-  ctx.save();
-  ctx.globalAlpha = .28;
-  rect(x - 21, y + 48, 10, 2, "#171725");
-  rect(x - 10, y + 50, 20, 2, "#171725");
-  rect(x + 11, y + 48, 12, 2, "#171725");
-  ctx.restore();
-
-  /* =========================
-     CAPE — 上半身に追従
-     ========================= */
-  rect(x - 19 - capeSwing, upperY + 1, 25, 31, "#263a70");
-  rect(x - 16 - capeSwing, upperY - 4, 19, 7, "#5570ad");
-  rect(x - 20 - capeSwing, upperY + 9, 8, 17, "#1c2d58");
-  rect(x - 16 - capeSwing, upperY + 17, 8, 11, "#3d5a96");
-  rect(x - 12 - capeSwing, upperY + 27, 10, 4, "#6880b8");
-  rect(x - 8 - capeSwing, upperY + 29, 8, 4, "#1b2a50");
-
-  /* =========================
-     GOLDEN HAIR — 大きめの頭部
-     ========================= */
-  // 後ろ髪
-  rect(x - 18, upperY - 19, 25, 22, "#895c21");
-  rect(x - 21, upperY - 13, 10, 20, "#b47b28");
-  rect(x + 4, upperY - 12, 9, 19, "#744b20");
-  rect(x - 24, upperY - 7, 7, 13, "#a96f24");
-  rect(x + 8, upperY - 5, 6, 12, "#68421e");
-
-  // 頭頂の金髪
-  rect(x - 16, upperY - 25, 22, 10, "#c58e35");
-  rect(x - 11, upperY - 29, 13, 6, "#e6ba57");
-  rect(x - 7, upperY - 30, 10, 4, "#f2d074");
-  rect(x - 15, upperY - 20, 8, 4, "#f0cd6e");
-  rect(x - 9, upperY - 14, 8, 3, "#dca548");
-  rect(x + 1, upperY - 19, 6, 3, "#9f6c26");
-
-  /* 前髪 — 顔を囲む */
-  rect(x - 14, upperY - 17, 7, 7, "#d7a242");
-  rect(x - 9, upperY - 19, 6, 9, "#edc261");
-  rect(x - 3, upperY - 17, 7, 6, "#c58a31");
-  rect(x + 3, upperY - 16, 6, 8, "#a97027");
-
-  /* =========================
-     CROWN — 髪に密着
-     ========================= */
-  rect(x - 8, upperY - 30, 17, 3, "#9a6a22");
-  rect(x - 7, upperY - 34, 4, 6, "#d7ad4f");
-  rect(x - 1, upperY - 37, 4, 9, "#f0d06c");
-  rect(x + 5, upperY - 34, 4, 6, "#d3a548");
-  rect(x - 6, upperY - 29, 14, 2, "#ffe391");
-  rect(x - 1, upperY - 30, 4, 2, "#7ca7ec");
-
-  /* =========================
-     FACE — 大きなアニメ目
-     ========================= */
-  rect(x - 10, upperY - 16, 22, 17, "#bc7354");
-  rect(x - 7, upperY - 18, 19, 18, "#efb18e");
-  rect(x + 8, upperY - 13, 7, 9, "#c77d61");
-  rect(x - 5, upperY - 17, 14, 3, "#f4c29c");
-  rect(x - 6, upperY - 14, 7, 2, "#8c564c");
-  rect(x + 5, upperY - 14, 7, 2, "#8c564c");
-
-  // 左右の大きな目。黒→紺→白ハイライトの3段階。
-  rect(x - 8, upperY - 12, 7, 8, "#252343");
-  rect(x + 4, upperY - 12, 7, 8, "#252343");
-  rect(x - 6, upperY - 10, 4, 5, "#4f6aa9");
-  rect(x + 6, upperY - 10, 4, 5, "#4f6aa9");
-  rect(x - 5, upperY - 10, 2, 2, "#ffffff");
-  rect(x + 7, upperY - 10, 2, 2, "#ffffff");
-  rect(x - 3, upperY - 6, 2, 1, "#d78378");
-  rect(x + 7, upperY - 6, 2, 1, "#d78378");
-
-  // 小さな鼻と口
-  rect(x + 1, upperY - 5, 2, 2, "#be765f");
-  rect(x - 1, upperY - 1, 7, 2, "#a95f62");
-  rect(x, upperY - 1, 4, 1, "#f09b91");
-
-  /* =========================
-     NECK / COLLAR
-     ========================= */
-  rect(x + 1, upperY, 10, 7, "#a06a51");
-  rect(x + 1, upperY + 2, 12, 6, "#5d687a");
-  rect(x + 4, upperY + 2, 6, 3, "#f0f2f4");
-  rect(x + 6, upperY + 4, 3, 3, "#4a6dab");
-
-  /* =========================
-     SHOULDER ARMOR
-     ========================= */
-  rect(x - 12, upperY + 6, 9, 9, "#566273");
-  rect(x - 11, upperY + 5, 8, 4, "#d8dde2");
-  rect(x + 12, upperY + 6, 10, 9, "#4e5869");
-  rect(x + 13, upperY + 5, 8, 4, "#e0e4e8");
-  rect(x - 14, upperY + 11, 5, 5, "#7f8997");
-  rect(x + 20, upperY + 11, 5, 5, "#707a8a");
-
-  /* =========================
-     CUIRASS — 女性勇者らしいシルエット
-     ========================= */
-  rect(x - 8, upperY + 7, 26, 25, "#333b49");
-  rect(x - 5, upperY + 7, 22, 22, "#838c98");
-  rect(x - 2, upperY + 8, 16, 18, "#d4d8dc");
-  rect(x + 11, upperY + 9, 6, 16, "#6d7785");
-  rect(x + 1, upperY + 7, 13, 3, "#f4f5f5");
-  rect(x + 7, upperY + 10, 2, 14, "#939ca7");
-
-  // 胸元の青い宝石
-  rect(x + 3, upperY + 11, 9, 8, "#345fa5");
-  rect(x + 5, upperY + 10, 5, 2, "#99c4f4");
-  rect(x + 5, upperY + 12, 5, 4, "#5f8bc9");
-  rect(x + 6, upperY + 13, 3, 2, "#d8f2ff");
-
-  /* 腕とガントレット */
-  rect(x + 16, upperY + 8, 10, 9, "#6c7685");
-  rect(x + 17, upperY + 7, 8, 3, "#edf0f2");
-  rect(x + 23, upperY + 11, 8, 7, "#c2c8d0");
-  rect(x + 25, upperY + 10, 4, 3, "#ffffff");
-  rect(x + 21, upperY + 16, 9, 4, "#525d6d");
-
-  /* =========================
-     WAIST / SHORT SKIRT ARMOR
-     ========================= */
-  rect(x - 7, upperY + 28, 25, 6, "#353c49");
-  rect(x - 2, upperY + 33, 9, 8, "#657080");
-  rect(x + 7, upperY + 33, 11, 8, "#535e6e");
-  rect(x - 5, upperY + 34, 8, 5, "#bfc6ce");
-  rect(x + 9, upperY + 34, 6, 5, "#8d97a3");
-  rect(x + 3, upperY + 27, 8, 8, "#cda34f");
-  rect(x + 5, upperY + 28, 4, 3, "#f5dc82");
-
-  /* =========================
-     LEGS / BOOTS — 完全固定
-     ========================= */
-  rect(x - 4, y + 40, 9, 10, "#4b5362");
-  rect(x + 8, y + 40, 10, 10, "#3d4654");
-  rect(x - 3, y + 40, 4, 8, "#c4cad1");
-  rect(x + 9, y + 40, 4, 8, "#8993a0");
-  rect(x - 7, y + 48, 13, 6, "#2b3340");
-  rect(x + 7, y + 48, 15, 6, "#242b38");
-  rect(x - 5, y + 48, 7, 2, "#d4dae0");
-  rect(x + 9, y + 48, 7, 2, "#a0a9b4");
-  rect(x - 9, y + 53, 15, 3, "#1d2430");
-  rect(x + 7, y + 53, 17, 3, "#1a202b");
-
-  /* =========================
-     SHIELD — 上半身に追従
-     ========================= */
-  rect(x - 18, upperY + 8, 9, 13, "#4e5c7c");
-  rect(x - 19, upperY + 9, 8, 4, "#93a8cd");
-  rect(x - 18, upperY + 13, 6, 8, "#6480af");
-  rect(x - 17, upperY + 13, 4, 4, "#edf5ff");
-  rect(x - 21, upperY + 19, 11, 3, "#293652");
-
-  /* Sword: デザインと攻撃モーションはそのまま。 */
-  drawSword(x + 24, upperY + 13, swordPhase);
-}
 /* =========================================================
-   HERO — 1.5頭身・モンスター側を向くアニメ風リビルド
+   HERO — 参考イラストをベースにしたピクセル版リビルド
+   大きな金髪の頭・青い瞳・笑顔・王冠・銀鎧・青マントと盾
    ========================================================= */
 function drawHero(time) {
   const attack = battleState.attack;
-  const idleFrame = getIdleFrame(time);
-
-  // 足は固定。肩〜頭だけが4フレームでゆっくり呼吸する。
-  const breath = [0, -1, 0, 1][idleFrame];
-  const capeSwing = [0, 1, 1, 0][idleFrame];
+  // 待機時は足元・頭を固定し、肩〜胸だけをゆっくり上下させる。
+  // 8フレームで吸って吐く呼吸にし、全身が上下に跳ねる動きは避ける。
+  const breathingFrame = Math.floor(time / 240) % 8;
+  const shoulderBreath = attack > 0 ? 0 : [0, -1, -1, 0, 0, 1, 1, 0][breathingFrame];
+  // マントは上部と裾で位相をずらし、風を受けてひらひら動かす。
+  const capeSwing = Math.round(Math.sin(time / 185) * 2);
+  const capeTailSwing = Math.round(Math.sin(time / 132 + 1.15) * 3);
+  const capeFoldSwing = Math.round(Math.sin(time / 160 + 2.25) * 2);
 
   let swordPhase = 0;
   if (attack > 0) {
@@ -4413,230 +4449,310 @@ function drawHero(time) {
     : 0;
 
   const x = 58 + damageShake;
+  // 立ち位置は固定。被ダメージ時だけ y / x に揺れを足す。
   const y = 94 + damageShake;
-  const upperY = y + breath;
+  const upperY = y;
+  const fx = x + 2;
 
-  /* =========================
-     GROUND SHADOW — 固定
-     ========================= */
+  // 足元の影。脚を短くした体型に合わせ、影もブーツの直下へ。
   ctx.save();
-  ctx.globalAlpha = .30;
-  rect(x - 18, y + 39, 8, 2, '#171725');
-  rect(x - 10, y + 41, 20, 2, '#171725');
-  rect(x + 10, y + 39, 8, 2, '#171725');
+  ctx.globalAlpha = 0.30;
+  rect(x - 16, y + 48, 7, 2, '#171725');
+  rect(x - 9, y + 49, 18, 2, '#171725');
+  rect(x + 9, y + 48, 7, 2, '#171725');
   ctx.restore();
 
-  /*
-     上半身だけをモンスター側（右）へしっかり向ける。
-     顔も別レイヤーで同じ方向へ向け、正面顔感を減らす。
-  */
+  // マントは肩から裾までつながった一枚の布。
+  // 各段の上下に縁取りを描かず、外周だけをピクセル状に縁取る。
+  // 一続きのグラデーションを各段へ共通適用し、横線で分断された印象をなくす。
+  const capeRows = [
+    { y: 12, h: 4, left: 8,  right: 7 },
+    { y: 15, h: 4, left: 12, right: 8 },
+    { y: 18, h: 4, left: 17, right: 9 },
+    { y: 21, h: 4, left: 21, right: 10 },
+    { y: 24, h: 4, left: 25, right: 11 },
+    { y: 27, h: 4, left: 28, right: 12 },
+    { y: 30, h: 4, left: 29, right: 13 },
+    { y: 33, h: 4, left: 27, right: 14 },
+    { y: 36, h: 3, left: 23, right: 15 }
+  ];
+  const capeWaveAt = i => Math.round(
+    capeSwing * 0.15 + (i / (capeRows.length - 1)) * capeTailSwing * 0.7
+  );
+  const capeGradient = ctx.createLinearGradient(
+    x - 31, upperY + 36,
+    x - 7, upperY + 13
+  );
+  capeGradient.addColorStop(0, '#26365f');
+  capeGradient.addColorStop(0.27, '#31538b');
+  capeGradient.addColorStop(0.52, '#497bc0');
+  capeGradient.addColorStop(0.73, '#689ed8');
+  capeGradient.addColorStop(1, '#3b5d98');
+
   ctx.save();
-  ctx.translate(x + 2, upperY + 16);
-  ctx.rotate(-0.055);
-  ctx.translate(-(x + 2), -(upperY + 16));
+  // まず布の面を塗る。各段は1pxだけ重ね、色境界も縁取りも横断させない。
+  capeRows.forEach((row, i) => {
+    const wave = capeWaveAt(i);
+    const rowX = x - row.left - wave;
+    const rowRight = x - row.right + 2 - wave;
+    rect(rowX, upperY + row.y, rowRight - rowX, row.h, capeGradient);
+  });
 
-  /* =========================
-     CAPE — 顔に絶対かからない後方レイヤー
-     ========================= */
-  rect(x - 19 - capeSwing, upperY + 10, 16, 25, '#233664');
-  rect(x - 17 - capeSwing, upperY + 6, 13, 6, '#5672b0');
-  rect(x - 20 - capeSwing, upperY + 16, 5, 13, '#182850');
-  rect(x - 16 - capeSwing, upperY + 24, 7, 8, '#3b5892');
-  rect(x - 13 - capeSwing, upperY + 31, 7, 4, '#6881b7');
-  // マントの先端は後頭部より下に限定して、顔周りへ侵入させない。
-  rect(x - 7 - capeSwing, upperY + 32, 6, 4, '#1c2b50');
+  // 外側の輪郭だけを階段状に縁取る。段ごとの上下線は描かない。
+  let previousLeft = null;
+  capeRows.forEach((row, i) => {
+    const wave = capeWaveAt(i);
+    const rowY = upperY + row.y;
+    const leftEdge = x - row.left - wave;
+    rect(leftEdge, rowY, 1, row.h, '#19264c');
 
-  /* =========================
-     LONG GOLDEN HAIR — 少し長め
-     ========================= */
-  // 後ろ髪の大きな楕円シルエット
-  rect(x - 18, upperY - 30, 36, 4, '#70451c');
-  rect(x - 23, upperY - 27, 46, 8, '#87541f');
-  rect(x - 26, upperY - 20, 52, 17, '#9b6220');
-  rect(x - 27, upperY - 10, 54, 18, '#8a551d');
-  rect(x - 24, upperY + 2, 48, 16, '#75491a');
+    if (previousLeft !== null && leftEdge !== previousLeft) {
+      const stepX = Math.min(previousLeft, leftEdge);
+      const stepW = Math.abs(leftEdge - previousLeft) + 1;
+      rect(stepX, rowY, stepW, 1, '#19264c');
+    }
+    previousLeft = leftEdge;
+  });
+  // 裾は最後の一辺だけを濃紺で締め、布の外周に見えるようにする。
+  const lastCapeRow = capeRows[capeRows.length - 1];
+  const lastCapeWave = capeWaveAt(capeRows.length - 1);
+  const hemX = x - lastCapeRow.left - lastCapeWave;
+  const hemRight = x - lastCapeRow.right + 2 - lastCapeWave;
+  rect(hemX, upperY + lastCapeRow.y + lastCapeRow.h - 1,
+       hemRight - hemX, 1, '#19264c');
 
-  // 左右の長い毛束（肩まで）
-  rect(x - 25, upperY - 4, 7, 24, '#b47529');
-  rect(x - 23, upperY + 8, 6, 18, '#8a551d');
-  rect(x + 18, upperY - 3, 7, 25, '#8b561e');
-  rect(x + 20, upperY + 9, 6, 16, '#684219');
+  // 布面の折り目は、線ではなく小さな明暗ピクセルのかたまりで表現。
+  // 全段を横切らないので、一枚の布の連続したグラデーションを保つ。
+  const foldWave = capeWaveAt(4);
+  rect(x - 25 - foldWave, upperY + 25, 4, 2, '#73a5dc');
+  rect(x - 21 - foldWave, upperY + 22, 4, 2, '#82b2e3');
+  rect(x - 17 - foldWave, upperY + 20, 3, 2, '#78a9dc');
+  rect(x - 21 - foldWave, upperY + 28, 3, 2, '#31558f');
+  rect(x - 18 - foldWave, upperY + 26, 3, 2, '#3a67a7');
+  ctx.restore();
 
-  // 金髪3階調
-  rect(x - 18, upperY - 27, 35, 7, '#d9a543');
-  rect(x - 20, upperY - 21, 41, 10, '#dfad4b');
-  rect(x - 20, upperY - 13, 41, 10, '#c68b34');
-  rect(x - 18, upperY - 5, 39, 10, '#aa6e27');
-  rect(x - 15, upperY - 25, 14, 4, '#f2d27c');
-  rect(x - 10, upperY - 19, 11, 3, '#f7dc91');
-  rect(x + 7, upperY - 14, 10, 3, '#b9782a');
-  rect(x - 23, upperY + 2, 4, 9, '#c0812e');
-  rect(x + 20, upperY + 3, 4, 10, '#73461b');
+  // 画像で丸く示された後ろ髪の束だけを約半分の長さに短縮。
+  // 顔沿いの横髪は後段で別に描画するため、そちらの長さには触れない。
+  rect(x - 28, upperY + 1, 8, 8, '#849746');
+  rect(x - 30, upperY + 4, 7, 7, '#cbdc7b');
+  rect(x - 33, upperY + 9, 9, 6, '#b8cf6c');
+  rect(x - 36, upperY + 14, 7, 3, '#c9dd7b');
+  rect(x - 33, upperY + 16, 5, 2, '#b2ca65');
+  rect(x - 30, upperY + 17, 3, 1, '#dce88f');
+  rect(x - 28, upperY + 3, 6, 3, '#f0e99b');
 
-  /* =========================
-     CROWN — 頭頂に密着 / 少し大きめにして勇者感を強調
-     ========================= */
-  rect(x - 7, upperY - 30, 21, 3, '#704719');
-  rect(x - 6, upperY - 34, 4, 7, '#d6aa46');
-  rect(x - 1, upperY - 37, 4, 10, '#f6d674');
-  rect(x + 5, upperY - 35, 4, 8, '#e0b24f');
-  rect(x + 10, upperY - 33, 4, 6, '#c7963e');
-  rect(x - 5, upperY - 29, 19, 2, '#ffeaa5');
-  rect(x - 1, upperY - 30, 4, 2, '#72a7ef');
-  rect(x + 6, upperY - 31, 3, 2, '#fff2b8');
-  rect(x - 3, upperY - 36, 2, 2, '#fff3be');
+  // 大きく丸い後ろ髪のシルエット。
+  rect(x - 18, upperY - 29, 36, 6, '#6b7f3b');
+  rect(x - 23, upperY - 25, 46, 10, '#809346');
+  rect(x - 26, upperY - 19, 52, 18, '#819548');
+  rect(x - 25, upperY - 5, 50, 11, '#74883d');
+  // 後ろ髪だけを短いボブ状に。横髪（サイドの束）は触らず、襟・顎より上で止める。
+  rect(x - 21, upperY + 4, 42, 3, '#6a7f37');
+  rect(x - 17, upperY + 7, 34, 1, '#637834');
 
-  /* =========================
-     FACE — 水平を保った3/4向きの楕円顔
-     ========================= */
-  const fx = x + 5;
+  // 黄緑がかった淡い金髪。ハイライトは大きなピクセルの塊で表現。
+  rect(x - 20, upperY - 25, 40, 7, '#d6e68a');
+  rect(x - 23, upperY - 20, 45, 10, '#cbdc7b');
+  rect(x - 23, upperY - 12, 46, 10, '#c1d471');
+  rect(x - 21, upperY - 4, 42, 11, '#b1c965');
+  rect(x - 17, upperY + 5, 34, 4, '#a3bc5b');
+  rect(x - 17, upperY - 26, 13, 3, '#f2f4ad');
+  rect(x - 10, upperY - 23, 13, 3, '#eaf09e');
+  rect(x + 4, upperY - 20, 10, 3, '#e7ed98');
+  rect(x - 24, upperY - 14, 4, 8, '#dfe991');
+  rect(x + 19, upperY - 10, 4, 7, '#e6ee9a');
 
-  // 顔は回転させず水平をキープ。輪郭だけ左右非対称にして3/4感を出す。
-  rect(fx - 17, upperY - 9, 33, 3, '#bd9188');
-  rect(fx - 19, upperY - 6, 37, 8, '#efd1c7');
-  rect(fx - 18, upperY + 2, 39, 10, '#f7e3da');
-  rect(fx - 13, upperY + 12, 33, 5, '#efd1c7');
-  rect(fx - 8, upperY + 17, 24, 3, '#bd9188');
+  // 三つ山の王冠。中央の突起を一番高くして金の縁取りを入れる。
+  rect(x - 10, upperY - 33, 22, 4, '#92661f');
+  rect(x - 9, upperY - 32, 20, 3, '#e0ae3d');
+  rect(x - 8, upperY - 38, 5, 7, '#b78322');
+  rect(x - 10, upperY - 40, 6, 4, '#f3cc56');
+  rect(x - 7, upperY - 38, 3, 6, '#ffe68c');
+  rect(x - 2, upperY - 43, 6, 12, '#c89226');
+  rect(x - 4, upperY - 45, 8, 5, '#f5d56e');
+  rect(x - 2, upperY - 43, 4, 9, '#ffe99b');
+  rect(x + 6, upperY - 39, 5, 8, '#b57e20');
+  rect(x + 5, upperY - 41, 7, 4, '#f0c653');
+  rect(x + 7, upperY - 38, 2, 5, '#ffe58a');
+  rect(x - 8, upperY - 32, 18, 2, '#fff0a0');
+  rect(x + 0, upperY - 32, 4, 2, '#5a91dc');
+  rect(x - 5, upperY - 39, 2, 2, '#fff4be');
+  rect(x + 0, upperY - 43, 2, 2, '#fff8cf');
+  rect(x + 8, upperY - 39, 2, 2, '#fff1ad');
 
-  // モンスター側（右）を少し広くして、正面顔を弱める。
-  rect(fx - 16, upperY + 1, 5, 5, '#fff2ea');
-  rect(fx + 13, upperY + 1, 7, 5, '#fff4ee');
-  rect(fx - 17, upperY + 8, 3, 2, '#f2b6ad');
-  rect(fx + 17, upperY + 8, 4, 3, '#e5a198');
+  // 顔の外周と肌。横幅を広げ、高さを抑えた楕円形の輪郭にする。
+  // 上下を段階的に細くし、ピクセルアートらしい丸みを作る。
+  rect(fx - 13, upperY - 13, 28, 3, '#8e7950');
+  rect(fx - 19, upperY - 10, 40, 4, '#8e7950');
+  rect(fx - 22, upperY - 6, 44, 12, '#8e7950');
+  rect(fx - 20, upperY + 6, 40, 5, '#8e7950');
+  rect(fx - 14, upperY + 11, 28, 3, '#8e7950');
+  rect(fx - 12, upperY - 12, 28, 3, '#f0e4c4');
+  rect(fx - 18, upperY - 9, 38, 4, '#f0e4c4');
+  rect(fx - 20, upperY - 5, 40, 11, '#fff1d7');
+  rect(fx - 18, upperY + 6, 36, 4, '#fff1d7');
+  rect(fx - 12, upperY + 10, 24, 3, '#f0dfbd');
+  // 顎下の緑色の髪が髭に見えないよう、肌色で幅広く塗り直して輪郭を整える。
+  rect(fx - 14, upperY + 11, 28, 2, '#fff1d7');
+  rect(fx - 12, upperY + 13, 24, 2, '#f0dfbd');
+  rect(fx - 10, upperY + 15, 20, 1, '#8e7950');
+  rect(fx - 18, upperY - 3, 2, 9, '#f8eacb');
+  rect(fx + 17, upperY - 2, 2, 9, '#eddbb7');
 
-  /* =========================
-     MODERN ANIME EYES — 3/4 perspective
-     ========================= */
-  // 上まぶた：両目とも少し下げつつ、モンスター側（右）をわずかに大きく。
-  rect(fx - 16, upperY - 1, 14, 3, '#423056');
-  rect(fx + 3, upperY - 1, 15, 3, '#423056');
-  rect(fx - 18, upperY + 1, 3, 4, '#4b345d');
-  rect(fx + 17, upperY + 1, 3, 4, '#4b345d');
+  // 前髪。頭の丸みを残しつつ、短い束が額にかかる。
+  rect(fx - 16, upperY - 13, 31, 4, '#b6cc69');
+  rect(fx - 15, upperY - 11, 9, 5, '#deeb91');
+  rect(fx - 7, upperY - 12, 7, 7, '#d1e17e');
+  rect(fx - 1, upperY - 11, 7, 6, '#e5ee9a');
+  rect(fx + 5, upperY - 10, 8, 5, '#bfd572');
+  rect(fx - 12, upperY - 10, 3, 3, '#f0f5a8');
+  rect(fx - 3, upperY - 9, 2, 2, '#f6f6b0');
 
-  // 外枠：向かって左の目を少し小さく、右目を少し大きくして遠近感。
-  rect(fx - 16, upperY + 1, 14, 14, '#332b57');
-  rect(fx + 2, upperY + 1, 17, 14, '#332b57');
+  // 大きな青い瞳。濃いまつ毛、青い虹彩、黒い瞳孔、白いハイライトの順。
+  rect(fx - 16, upperY - 5, 14, 3, '#302943');
+  rect(fx + 2, upperY - 5, 16, 3, '#302943');
+  rect(fx - 17, upperY - 3, 3, 8, '#302943');
+  rect(fx + 17, upperY - 3, 3, 8, '#302943');
+  rect(fx - 15, upperY - 3, 12, 12, '#342b49');
+  rect(fx + 2, upperY - 3, 16, 12, '#342b49');
+  rect(fx - 13, upperY - 1, 9, 9, '#fffdf4');
+  rect(fx + 4, upperY - 1, 12, 9, '#fffdf4');
+  rect(fx - 11, upperY - 2, 7, 10, '#137edb');
+  rect(fx + 6, upperY - 2, 8, 10, '#1685e7');
+  rect(fx - 10, upperY, 6, 6, '#4bc1ff');
+  rect(fx + 7, upperY, 6, 6, '#55c5ff');
+  rect(fx - 9, upperY + 3, 5, 5, '#174bb3');
+  rect(fx + 8, upperY + 3, 5, 5, '#174bb3');
+  rect(fx - 7, upperY + 1, 3, 6, '#17192c');
+  rect(fx + 9, upperY + 1, 4, 6, '#17192c');
+  rect(fx - 12, upperY - 1, 3, 3, '#ffffff');
+  rect(fx - 5, upperY + 1, 2, 2, '#ffffff');
+  rect(fx + 5, upperY - 1, 3, 3, '#ffffff');
+  rect(fx + 13, upperY + 1, 2, 2, '#ffffff');
+  rect(fx - 14, upperY + 7, 2, 2, '#d6efff');
+  rect(fx + 15, upperY + 7, 2, 2, '#d6efff');
 
-  // 下側の線だけ肌色に戻して、眼鏡のフレームのように見えないようにする。
-  // 上まぶたと左右の輪郭は残し、目の下は顔になじませる。
-  rect(fx - 16, upperY + 13, 14, 2, '#f7e3da');
-  rect(fx + 2, upperY + 13, 17, 2, '#f7e3da');
+  // 眉と頬の赤み。
+  rect(fx - 13, upperY - 8, 8, 2, '#8c794b');
+  rect(fx + 5, upperY - 8, 9, 2, '#8c794b');
+  rect(fx - 17, upperY + 8, 4, 2, '#f6a28c');
+  rect(fx - 15, upperY + 10, 3, 2, '#ffb49b');
+  rect(fx + 15, upperY + 8, 4, 2, '#f6a28c');
+  rect(fx + 16, upperY + 10, 3, 2, '#ffb49b');
 
-  // 白目：輪郭に沿って1〜2pxだけ残す、柔らかいアイボリー。
-  rect(fx - 14, upperY + 3, 11, 10, '#fff8ef');
-  rect(fx + 4, upperY + 3, 13, 10, '#fff8ef');
-  rect(fx - 15, upperY + 5, 1, 6, '#fffdf7');
-  rect(fx + 3, upperY + 5, 1, 6, '#fffdf7');
+  // 小さなW字型の口。控えめな赤茶色で、口角のある可愛い表情にする。
+  rect(fx - 5, upperY + 12, 2, 1, '#a64b4c');
+  rect(fx - 4, upperY + 13, 2, 1, '#a64b4c');
+  rect(fx - 2, upperY + 12, 2, 1, '#a64b4c');
+  rect(fx,     upperY + 13, 2, 1, '#a64b4c');
+  rect(fx + 2, upperY + 12, 2, 1, '#a64b4c');
+  rect(fx - 5, upperY + 11, 1, 1, '#d66b61');
+  rect(fx + 4, upperY + 11, 1, 1, '#d66b61');
 
-  // 虹彩：3階調＋少し大きめ。
-  rect(fx - 13, upperY + 3, 9, 10, '#6f84df');
-  rect(fx + 5, upperY + 3, 11, 10, '#6f84df');
-  rect(fx - 12, upperY + 4, 7, 6, '#a8baf8');
-  rect(fx + 6, upperY + 4, 8, 6, '#a8baf8');
-  rect(fx - 11, upperY + 10, 7, 3, '#586bc3');
-  rect(fx + 7, upperY + 10, 8, 3, '#586bc3');
+  // 耳元から肩へ落ちる横髪は、希望に合わせてv30の長さに戻す。
+  rect(x - 22, upperY + 5, 5, 12, '#c3d875');
+  rect(x - 21, upperY + 12, 4, 8, '#dce990');
+  rect(x - 18, upperY + 16, 3, 3, '#a6bf5e');
+  rect(x + 20, upperY + 4, 5, 12, '#b4ca67');
+  rect(x + 20, upperY + 12, 4, 8, '#d5e584');
+  rect(x + 21, upperY + 17, 3, 3, '#94ad4f');
 
-  // 瞳孔：中央に存在感のある黒い1ドット核＋2pxの縦芯。
-  rect(fx - 10, upperY + 7, 3, 3, '#202039');
-  rect(fx + 8, upperY + 7, 3, 3, '#202039');
-  rect(fx - 9, upperY + 6, 1, 1, '#171729');
-  rect(fx + 9, upperY + 6, 1, 1, '#171729');
+  // 首は描かず、顔のすぐ下に鎧の襟を置いて頭と胴体を自然につなぐ。
+  rect(fx - 6, upperY + 15, 13, 3, '#343b4c');
+  rect(fx - 4, upperY + 15, 9, 2, '#e6e9ed');
+  rect(fx - 1, upperY + 15, 3, 2, '#aab4c0');
 
-  // ハイライト：大きいハイライトを向かって左下、小さい対角ハイライトを右上。
-  rect(fx - 14, upperY + 10, 3, 3, '#ffffff');
-  rect(fx - 5, upperY + 4, 2, 2, '#ffffff');
-  rect(fx + 4, upperY + 10, 3, 3, '#ffffff');
-  rect(fx + 13, upperY + 4, 2, 2, '#ffffff');
+  // 脚は前回よりさらに短く、頭の大きいデフォルメ体型に合わせる。
+  // すねを約半分の長さにし、ブーツは少し大きめにして接地感を残す。
+  rect(x - 5, upperY + 31, 5, 8, '#424a58');
+  rect(x + 2, upperY + 31, 6, 8, '#394250');
+  rect(x - 4, upperY + 32, 3, 5, '#d9dfe4');
+  rect(x + 3, upperY + 32, 3, 5, '#b7c0cb');
+  rect(x - 9, upperY + 38, 13, 9, '#2b3341');
+  rect(x + 0, upperY + 38, 15, 9, '#252d39');
+  rect(x - 7, upperY + 38, 9, 5, '#e1e4e6');
+  rect(x + 2, upperY + 38, 10, 5, '#c5ccd5');
+  rect(x - 7, upperY + 44, 10, 2, '#9ca8b8');
+  rect(x + 2, upperY + 44, 11, 2, '#909cac');
+  rect(x - 6, upperY + 46, 8, 1, '#f5f6f2');
+  rect(x + 4, upperY + 46, 8, 1, '#edf0ef');
 
-  // まつ毛
-  rect(fx - 19, upperY + 1, 4, 2, '#443057');
-  rect(fx + 17, upperY + 1, 4, 2, '#443057');
+  // 肩・胸鎧・腕・腰アーマーを約2/3に縮小。大きな頭はそのままにする。
+  ctx.save();
+  // 顎のすぐ下に肩当てが来るよう、鎧全体を上へ寄せる。
+  ctx.translate(fx, upperY + 16);
+  ctx.scale(0.67, 0.67);
+  ctx.translate(-fx, -(upperY + 21));
 
-  // 口・鼻は描かず、目と顔の輪郭だけで表情を作る。
+  // 呼吸アニメは肩〜胸〜腕だけに適用。頭・脚・足元の影は動かさない。
+  // 0.67倍の縮小後に画面上で約1px動くよう補正する。
+  ctx.save();
+  if (shoulderBreath !== 0) ctx.translate(0, shoulderBreath / 0.67);
 
-  /* =========================
-     NECK / COLLAR
-     ========================= */
-  rect(fx - 2, upperY + 17, 8, 5, '#d2a198');
-  rect(fx - 5, upperY + 20, 14, 5, '#eef1f4');
-  rect(fx + 0, upperY + 20, 5, 3, '#5576b8');
+  // 肩当てと銀色の胸鎧。大きな白銀の面と濃い縁で立体感を作る。
+  rect(fx - 16, upperY + 21, 11, 9, '#4b5260');
+  rect(fx - 15, upperY + 21, 9, 6, '#d5dbe2');
+  rect(fx - 14, upperY + 22, 7, 3, '#f7f8f7');
+  rect(fx + 8, upperY + 21, 11, 9, '#4b5260');
+  rect(fx + 9, upperY + 21, 9, 6, '#c4ccd6');
+  rect(fx + 10, upperY + 22, 7, 3, '#f7f8f7');
+  rect(fx - 11, upperY + 22, 29, 16, '#424a59');
+  rect(fx - 9, upperY + 22, 25, 13, '#aeb7c2');
+  rect(fx - 7, upperY + 23, 21, 10, '#e4e7eb');
+  rect(fx - 5, upperY + 23, 17, 3, '#fbfcfa');
+  rect(fx - 2, upperY + 26, 3, 7, '#c0c8d2');
+  rect(fx + 6, upperY + 26, 3, 7, '#9ca7b4');
+  rect(fx + 11, upperY + 25, 4, 8, '#737f8e');
+  rect(fx - 7, upperY + 33, 20, 3, '#737e8c');
 
-  /* =========================
-     ARMOR
-     ========================= */
-  rect(fx - 13, upperY + 23, 9, 7, '#606b7b');
-  rect(fx - 12, upperY + 22, 7, 3, '#e4e8eb');
-  rect(fx + 7, upperY + 23, 9, 7, '#566172');
-  rect(fx + 8, upperY + 22, 7, 3, '#f1f3f4');
+  // 腕と金色のガントレット。右手は剣の柄の位置につなげる。
+  rect(fx + 11, upperY + 23, 7, 7, '#626c7a');
+  rect(fx + 12, upperY + 23, 5, 3, '#f0f2f2');
+  rect(fx + 14, upperY + 27, 7, 6, '#916e32');
+  rect(fx + 15, upperY + 27, 5, 3, '#d9b260');
+  rect(fx + 16, upperY + 30, 4, 3, '#6e542a');
+  rect(fx + 17, upperY + 28, 3, 2, '#f0d27c');
 
-  rect(fx - 7, upperY + 23, 17, 15, '#414a59');
-  rect(fx - 5, upperY + 23, 15, 13, '#b6bdc5');
-  rect(fx - 2, upperY + 24, 11, 10, '#e4e7ea');
-  rect(fx + 6, upperY + 24, 4, 10, '#7b8592');
-  rect(fx - 1, upperY + 23, 9, 2, '#ffffff');
+  // 腰の位置は固定するため、呼吸の変形はここで終了。
+  ctx.restore();
 
-  // 胸宝石
-  rect(fx, upperY + 27, 7, 7, '#345ea8');
-  rect(fx + 1, upperY + 26, 4, 2, '#b4dcff');
-  rect(fx + 1, upperY + 29, 5, 3, '#6c9bdd');
-  rect(fx + 2, upperY + 29, 2, 2, '#effaff');
-
-  // 小さな腕・手
-  rect(fx + 9, upperY + 26, 7, 7, '#7d8794');
-  rect(fx + 10, upperY + 25, 5, 3, '#f6f8f9');
-  rect(fx + 15, upperY + 30, 5, 5, '#f3d4ca');
-  rect(fx + 17, upperY + 31, 3, 3, '#d7aaa1');
-
-  /* =========================
-     BELT / SKIRT ARMOR
-     ========================= */
-  rect(fx - 7, upperY + 37, 16, 4, '#343d4a');
-  rect(fx - 1, upperY + 37, 6, 4, '#d4ae59');
-  rect(fx, upperY + 38, 4, 2, '#f6de8b');
-  rect(fx - 5, upperY + 41, 7, 5, '#c8ced4');
-  rect(fx + 3, upperY + 41, 8, 5, '#6b7684');
-
-  /* SHIELD — 3/4向きに右へ寄せて奥行きを出す */
-  rect(fx - 19, upperY + 25, 8, 10, '#526283');
-  rect(fx - 20, upperY + 26, 7, 3, '#a6bad9');
-  rect(fx - 19, upperY + 29, 6, 6, '#6f8ab7');
-  rect(fx - 18, upperY + 29, 3, 3, '#f0f7ff');
-
-  /* 細部：髪・王冠・鎧・宝石・マント */
-  rect(x - 20, upperY - 18, 2, 1, '#f6d98d');
-  rect(x - 16, upperY - 14, 1, 4, '#f8df9b');
-  rect(x - 11, upperY - 10, 2, 1, '#e9ba61');
-  rect(x + 10, upperY - 14, 1, 4, '#d9a243');
-  rect(x + 18, upperY - 4, 1, 5, '#9b6424');
-  rect(x - 4, upperY - 33, 1, 3, '#fff4bd');
-  rect(x + 1, upperY - 35, 1, 3, '#fff8ce');
-  rect(x + 8, upperY - 32, 1, 2, '#f8df91');
-  rect(fx - 11, upperY - 6, 1, 1, '#dce7ff');
-  rect(fx + 14, upperY - 6, 1, 1, '#dce7ff');
-  rect(fx - 15, upperY + 10, 1, 1, '#f6c1bc');
-  rect(fx + 16, upperY + 10, 1, 1, '#edada8');
-  rect(fx - 4, upperY + 27, 1, 7, '#f7f8fa');
-  rect(fx + 8, upperY + 25, 1, 8, '#a7b0bb');
-  rect(fx + 1, upperY + 28, 1, 2, '#ffffff');
-  rect(fx - 18 - capeSwing, upperY + 17, 1, 9, '#6b86bd');
-  rect(fx - 13 - capeSwing, upperY + 24, 1, 7, '#4d6ba7');
-
-  // 剣は従来のデザイン・動きを維持
-  drawSword(fx + 17, upperY + 29, swordPhase);
+  // 腰のプレートと、参考絵の短いプリーツスカート型アーマー。
+  rect(fx - 10, upperY + 35, 26, 5, '#343c4a');
+  rect(fx - 8, upperY + 36, 22, 4, '#b6bec8');
+  rect(fx - 7, upperY + 36, 6, 8, '#e3e6e9');
+  rect(fx - 1, upperY + 36, 6, 9, '#f2f2ee');
+  rect(fx + 5, upperY + 36, 6, 8, '#bdc5cf');
+  rect(fx + 11, upperY + 35, 4, 7, '#8994a2');
+  rect(fx - 5, upperY + 38, 2, 5, '#9da7b3');
+  rect(fx + 1, upperY + 39, 2, 5, '#9da7b3');
+  rect(fx + 7, upperY + 38, 2, 5, '#7e8997');
+  rect(fx - 1, upperY + 34, 7, 4, '#d3a34a');
+  rect(fx + 1, upperY + 34, 3, 2, '#ffdf82');
 
   ctx.restore();
 
-  /* =========================
-     TINY LEGS / BOOTS — 完全固定
-     ========================= */
-  rect(x - 4, y + 43, 6, 7, '#5f6977');
-  rect(x + 4, y + 43, 7, 7, '#485260');
-  rect(x - 2, y + 43, 3, 4, '#dfe3e6');
-  rect(x + 5, y + 43, 3, 4, '#9aa4af');
-  rect(x - 7, y + 49, 10, 4, '#2c3440');
-  rect(x + 3, y + 49, 11, 4, '#252d38');
-  rect(x - 5, y + 49, 5, 1, '#d7dce1');
-  rect(x + 5, y + 49, 5, 1, '#abb4bf');
+  // 盾と剣も肩の呼吸に同期してわずかに上下する。
+  // 胴体だけが動いて見えないよう、両腕の先までひと続きの動きにする。
+  ctx.save();
+  if (shoulderBreath !== 0) ctx.translate(0, shoulderBreath);
+
+  // 盾は手前に配置。銀の縁、青い面、白い「e」の紋章。
+  rect(fx - 23, upperY + 23, 16, 20, '#343b4c');
+  rect(fx - 22, upperY + 24, 14, 17, '#8a929f');
+  rect(fx - 20, upperY + 25, 11, 15, '#243781');
+  rect(fx - 19, upperY + 26, 2, 11, '#5f7fdb');
+  rect(fx - 17, upperY + 27, 7, 2, '#ffffff');
+  rect(fx - 19, upperY + 29, 2, 4, '#ffffff');
+  rect(fx - 17, upperY + 31, 7, 2, '#ffffff');
+  rect(fx - 16, upperY + 33, 2, 4, '#ffffff');
+  rect(fx - 15, upperY + 36, 6, 2, '#ffffff');
+  rect(fx - 20, upperY + 40, 10, 2, '#1b285b');
+  rect(fx - 18, upperY + 42, 7, 2, '#8a929f');
+  rect(fx - 16, upperY + 44, 3, 1, '#343b4c');
+
+  // 大剣は小さくなった右手に柄を合わせつつ、剣身は大きく保つ。
+  drawSword(fx + 12, upperY + 24, swordPhase);
+  ctx.restore();
 }
 
 /* =========================================================
@@ -4660,6 +4776,7 @@ function drawEnemyMicroDetails(time) {
   const idleFrame = getIdleFrame(time);
   const idleBob = getIdleBob(idleFrame);
   const type = stage.type;
+  if (type === "fish" || type === "poseidon" || type === "wolf" || type === "golem" || type === "dragon" || type === "chimera" || type === "tree-turtle" || type === "snow-goddess" || type === "skeleton-knight" || type === "magma-snail" || type === "firebird" || type === "snowman-devil") return;
   let x = 235;
   let y = 82 + idleBob;
   let scale = 1;
@@ -4784,6 +4901,7 @@ function drawEnemyFineDetails(time) {
   const idleFrame = getIdleFrame(time);
   const idleBob = getIdleBob(idleFrame);
   const type = stage.type;
+  if (type === "fish" || type === "poseidon" || type === "wolf" || type === "golem" || type === "dragon" || type === "chimera" || type === "tree-turtle" || type === "snow-goddess" || type === "skeleton-knight" || type === "magma-snail" || type === "firebird" || type === "snowman-devil") return;
 
   let x = 235;
   let y = 82 + idleBob;
@@ -4888,10 +5006,11 @@ function drawEnemyFineDetails(time) {
    MONSTER LIGHTING — consistent top-left light / bottom-right shadow
    ========================================================= */
 function drawEnemyUltraFineDetails(time) {
-  if (!ctx) return;
+  if (!ctx || battleState.defeat > 0) return;
   const stage = activeStages[currentStage];
   if (!stage) return;
   const type = stage.type;
+  if (type === "fish" || type === "poseidon" || type === "wolf" || type === "golem" || type === "dragon" || type === "chimera" || type === "tree-turtle" || type === "snow-goddess" || type === "skeleton-knight" || type === "magma-snail" || type === "firebird" || type === "snowman-devil") return;
   const frame = getIdleFrame(time);
   const bob = getIdleBob(frame);
   let x = 235;
@@ -4924,11 +5043,12 @@ function drawEnemyUltraFineDetails(time) {
 }
 
 function drawEnemyLightingPass(time) {
-  if (!ctx) return;
+  if (!ctx || battleState.defeat > 0) return;
   const stage = activeStages[currentStage];
   if (!stage) return;
 
   const type = stage.type;
+  if (type === "fish" || type === "poseidon" || type === "wolf" || type === "golem" || type === "dragon" || type === "chimera" || type === "tree-turtle" || type === "snow-goddess" || type === "skeleton-knight" || type === "magma-snail" || type === "firebird" || type === "snowman-devil") return;
   const idleBob = getIdleBob(getIdleFrame(time));
   let x = 235;
   let y = 82 + idleBob;
@@ -4953,8 +5073,9 @@ function drawEnemyLightingPass(time) {
     toneRect(8, -18, 9, 3, "#8b6b96", "#71527f", "#594064");
     toneRect(12, 10, 7, 8, "#80527d", "#62426f", "#493254");
     toneRect(-14, 17, 28, 3, "#76507f", "#5b3d69", "#3f2d4d");
-    rect(-7, -6, 3, 2, "#fff4f8");
-    rect(-2, -4, 2, 2, "#f4d8ec");
+    // Keep the updated goofy eyes and dangling tongue unobstructed.
+    rect(-22, -12, 3, 2, "#f4d8ec");
+    rect(-5, -17, 3, 2, "#fff4f8");
   }
 
   if (type === "bat") {
@@ -5282,164 +5403,262 @@ function drawSword(
    ========================================================= */
 
 function drawEnemy(time) {
-  const stage =
-    activeStages[currentStage];
-
-  // モンスターも4フレームの待機モーション。
-  // 0.18秒ごとに上下へ2px移動して、
-  // START QUEST中も常にアニメーションする。
-  const idleFrame = getIdleFrame(time);
-
-  const idleBob = getIdleBob(idleFrame);
-
+  const stage = activeStages[currentStage];
   if (!stage) return;
 
-  let alpha = 1;
-  let scale = 1;
+  const idleFrame = getIdleFrame(time);
+  const idleBob = getIdleBob(idleFrame);
+  const type = stage.type;
+  const isEmperor = stage.monsterId === "void-emperor" || !!stage.finalBoss;
+  const renderType = isEmperor ? "void-emperor" : type;
 
-  if (
-    battleState.defeat > 0
-  ) {
-    const elapsed =
-      1 -
-      battleState.defeat;
+  // Each sprite has its own drawing origin and ground pivot. Defeat motion is
+  // applied around the feet/base so the monster recoils and topples naturally.
+  const roots = {
+    slime: { y: 83 + idleBob, ground: 42 },
+    bat: { y: 76 + idleBob, ground: 35 },
+    "skeleton-knight": { y: 78 + idleBob, ground: 47 },
+    "magma-snail": { y: 86 + idleBob, ground: 37 },
+    firebird: { y: 67 + Math.round(Math.sin(time / 145) * 2), ground: 52 },
+    "snowman-devil": { y: 81 + idleBob, ground: 43 },
+    dragon: { y: 72 + idleBob, ground: isEmperor ? 53 : 52 },
+    chimera: { y: 78 + idleBob, ground: 49 },
+    "tree-turtle": { y: 80 + idleBob, ground: 49 },
+    "snow-goddess": { y: 85 + Math.round(idleBob * 0.25), ground: 42 },
+    mandraga: { y: 82 + idleBob, ground: 40 },
+    wolf: { y: 84 + idleBob, ground: 42 },
+    phantom: { y: 78 + idleBob, ground: 40 },
+    golem: { y: 76 + idleBob, ground: 51 },
+    shrimp: { y: 82 + idleBob, ground: 35 },
+    fish: { y: 78 + idleBob, ground: 33 },
+    poseidon: { y: 68 + idleBob, ground: 60 }
+  };
+  const root = roots[type] || { y: 82 + idleBob, ground: 42 };
+  const originY = root.y;
+  const groundY = originY + root.ground;
 
-    alpha =
-      Math.max(
-        0,
-        elapsed
-      );
+  let progress = 0;
+  const isDefeating = battleState.defeat > 0 && battleState.defeatStartedAt > 0;
+  if (isDefeating) {
+    progress = Math.max(0, Math.min(1, (time - battleState.defeatStartedAt) / 1180));
+  }
 
-    scale =
-      .55 +
-      elapsed * .45;
+  // Three beats: a sharp recoil, a helpless wobble with a defeated face, then
+  // a pixel burst as the enemy shrinks and dissolves out of the arena.
+  let shiftX = 0, shiftY = 0, rotation = 0, squashX = 1, squashY = 1, alpha = 1;
+  if (isDefeating) {
+    if (progress < 0.16) {
+      const p = progress / 0.16;
+      const recoil = Math.sin(p * Math.PI);
+      shiftX = -Math.round(4 * p);
+      shiftY = -Math.round(2 * recoil);
+      rotation = -0.055 * recoil;
+      squashX = 1 + 0.075 * recoil;
+      squashY = 1 - 0.09 * recoil;
+    } else if (progress < 0.52) {
+      const p = (progress - 0.16) / 0.36;
+      shiftX = -Math.round(4 + 7 * p);
+      shiftY = Math.round(1 + 4 * p);
+      rotation = -0.02 + 0.20 * p;
+      squashX = 1.075 - 0.12 * p;
+      squashY = 0.91 + 0.10 * p;
+    } else {
+      const p = (progress - 0.52) / 0.48;
+      shiftX = -Math.round(11 + 5 * p);
+      shiftY = Math.round(5 - 19 * p);
+      rotation = 0.18 + 0.23 * p;
+      squashX = 0.955 - 0.48 * p;
+      squashY = 1.01 - 0.55 * p;
+      alpha = Math.max(0, 1 - p);
+    }
   }
 
   ctx.save();
-
-  ctx.globalAlpha =
-    alpha;
-
-  if (
-    stage.type ===
-    "slime"
-  ) {
-    drawSlime(
-      235,
-      83 + idleBob,
-      scale
-    );
+  ctx.globalAlpha = alpha;
+  if (isDefeating) {
+    ctx.translate(235 + shiftX, groundY + shiftY);
+    ctx.rotate(rotation);
+    ctx.scale(squashX, squashY);
+    ctx.translate(-235, -groundY);
   }
 
-  if (
-    stage.type ===
-    "bat"
-  ) {
-    drawBat(
-      235,
-      76 + idleBob,
-      scale,
-      time
-    );
+  if (type === "slime") drawSlime(235, originY, 1, time);
+  if (type === "bat") drawBat(235, originY, 1, time);
+  if (type === "skeleton-knight") drawSkeletonKnight(235, originY, 1, time);
+  if (type === "magma-snail") drawMagmaSnail(235, originY, 1, time);
+  if (type === "firebird") drawFirebird(235, originY, 1, time);
+  if (type === "snowman-devil") drawSnowmanDevil(235, originY, 1, time);
+  if (type === "dragon") {
+    if (isEmperor) {
+      drawVoidEmperorAura(time);
+      drawVoidEmperor(235, originY, 1.03, time);
+    } else {
+      drawDragon(235, originY, 1, time);
+    }
+  }
+  if (type === "chimera") drawChimera(235, originY, 1.02, time);
+  if (type === "tree-turtle") drawWorldTreeTortoise(235, originY, 1.02, time);
+  if (type === "snow-goddess") drawSnowGoddess(235, originY, 1, time);
+  if (type === "mandraga") drawMandraga(235, originY, 1, time);
+  if (type === "wolf") drawWolf(235, originY, 1, time);
+  if (type === "phantom") drawPhantom(235, originY, 1, time);
+  if (type === "golem") drawGolem(235, originY, 1, time);
+  if (type === "shrimp") drawShrimp(235, originY, 1, time);
+  if (type === "fish") drawFish(235, originY, 1, time);
+  if (type === "poseidon") drawPoseidon(235, originY, 1, time);
+
+  if (isDefeating && progress >= 0.17 && progress < 0.60) {
+    drawMonsterDefeatFace(renderType, 235, originY, progress, time);
   }
 
-  if (
-    stage.type ===
-    "dragon"
-  ) {
-    if (stage.finalBoss) drawVoidEmperorAura(time);
-    drawDragon(
-      235,
-      72 + idleBob,
-      stage.finalBoss ? scale * 1.12 : scale
-    );
-    if (stage.finalBoss) drawVoidEmperorCrown();
-  }
-
-  /*
-    追加モンスター
-    今後のステージ追加用
-  */
-
-  if (
-    stage.type ===
-    "mandraga"
-  ) {
-    drawMandraga(
-      235,
-      82 + idleBob,
-      scale
-    );
-  }
-
-  if (
-    stage.type ===
-    "wolf"
-  ) {
-    drawWolf(
-      235,
-      84 + idleBob,
-      scale
-    );
-  }
-
-  if (
-    stage.type ===
-    "phantom"
-  ) {
-    drawPhantom(
-      235,
-      78 + idleBob,
-      scale
-    );
-  }
-
-  if (
-    stage.type ===
-    "golem"
-  ) {
-    drawGolem(
-      235,
-      76 + idleBob,
-      scale
-    );
-  }
-
-  if (stage.type === "shrimp") {
-    drawShrimp(235, 82 + idleBob, scale);
-  }
-
-  if (stage.type === "fish") {
-    drawFish(235, 78 + idleBob, scale);
-  }
-
-  if (stage.type === "poseidon") {
-    drawPoseidon(235, 68 + idleBob, scale, time);
+  // A few timed impact stars, in addition to the flying square particles.
+  if (isDefeating && progress < 0.28) {
+    const sparkAlpha = Math.max(0, 1 - progress / 0.28);
+    ctx.save();
+    ctx.globalAlpha = sparkAlpha;
+    const j = Math.round(Math.sin(time / 25) * 2);
+    rect(198 + j, originY - 10, 3, 3, "#ffffff");
+    rect(268 - j, originY - 23, 2, 2, "#ffe8a6");
+    rect(258 + j, originY + 8, 3, 2, "#f5fbff");
+    ctx.restore();
   }
 
   ctx.restore();
 
   /* FLASH */
-
-  if (
-    battleState.flashUntil >
-    performance.now()
-  ) {
+  if (battleState.flashUntil > performance.now()) {
     ctx.save();
-
-    ctx.globalAlpha =
-      .72;
-
-    rect(
-      160,
-      35,
-      120,
-      100,
-      "#ffffff"
-    );
-
+    ctx.globalAlpha = .72;
+    rect(160, 35, 120, 100, "#ffffff");
     ctx.restore();
   }
+}
+
+function drawMonsterDefeatFace(type, x, y, progress, time) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.globalAlpha = Math.min(1, (progress - 0.15) * 10) * Math.min(1, (0.62 - progress) * 9);
+
+  const eyeJitter = Math.round(Math.sin(time / 22) * 1);
+  const drawXEye = (cx, cy, ink = "#291b31", light = "#fff1e9") => {
+    rect(cx - 3, cy - 3, 7, 7, ink);
+    rect(cx - 2 + eyeJitter, cy - 2, 2, 2, light);
+    rect(cx + 1 + eyeJitter, cy - 2, 2, 2, light);
+    rect(cx - 1 + eyeJitter, cy - 1, 2, 2, light);
+    rect(cx - 2 + eyeJitter, cy + 1, 2, 2, light);
+    rect(cx + 1 + eyeJitter, cy + 1, 2, 2, light);
+  };
+  const drawMouth = (mx, my, lip = "#d7778d") => {
+    rect(mx - 4, my - 3, 8, 7, "#241a2b");
+    rect(mx - 2, my - 1, 4, 4, "#120f1e");
+    rect(mx - 1, my + 2, 3, 2, lip);
+    rect(mx - 3, my - 3, 2, 1, "#fff4e8");
+  };
+  const tinySplat = (sx, sy, color = "#fff4e8") => {
+    rect(sx, sy, 2, 2, color);
+    rect(sx + 3, sy - 2, 2, 2, color);
+    rect(sx + 4, sy + 2, 2, 2, color);
+  };
+
+  switch (type) {
+    case "slime":
+      drawXEye(-9, 1, "#4a2d59", "#fff8fc");
+      drawXEye(9, 1, "#4a2d59", "#fff8fc");
+      drawMouth(1, 12, "#f28bab");
+      rect(6, 16, 3, 5, "#f28bab");
+      break;
+    case "bat":
+      drawXEye(-6, -4, "#322844", "#f8e9fa");
+      drawXEye(6, -4, "#322844", "#f8e9fa");
+      drawMouth(0, 4, "#ce8197");
+      break;
+    case "mandraga":
+      drawXEye(-10, 1, "#263528", "#e5f5bf");
+      drawXEye(9, 1, "#263528", "#e5f5bf");
+      drawMouth(1, 12, "#9ebd6e");
+      break;
+    case "wolf":
+      drawXEye(-28, -25, "#242638", "#f5f0e6");
+      drawXEye(-18, -25, "#242638", "#f5f0e6");
+      drawMouth(-38, -16, "#c2c5c7");
+      break;
+    case "phantom":
+      drawXEye(-11, -15, "#4c456a", "#fff5ff");
+      drawXEye(11, -15, "#4c456a", "#fff5ff");
+      drawMouth(0, 6, "#c5bce8");
+      break;
+    case "golem":
+      // Short-circuiting eyes, with a jagged gold spark across the brow.
+      rect(-12, -40, 9, 4, "#252a37"); rect(3, -40, 9, 4, "#252a37");
+      rect(-10, -39, 2, 2, "#ffe3a0"); rect(5, -38, 2, 2, "#ffe3a0");
+      rect(-3, -34, 3, 2, "#252a37"); rect(1, -34, 3, 2, "#252a37");
+      break;
+    case "shrimp":
+      drawXEye(-12, -14, "#421f34", "#fff6d5");
+      drawXEye(1, -14, "#421f34", "#fff6d5");
+      drawMouth(-3, -6, "#ef8a8c");
+      break;
+    case "fish":
+      drawXEye(-21, -12, "#10283f", "#fff7dd");
+      drawMouth(-28, 1, "#d95c80");
+      break;
+    case "poseidon":
+      rect(-11, -44, 8, 3, "#573a37"); rect(3, -44, 8, 3, "#513633");
+      rect(-10, -42, 7, 2, "#fff5ed"); rect(3, -42, 7, 2, "#fff5ed");
+      drawMouth(0, -38, "#b87560");
+      break;
+    case "dragon":
+      drawXEye(-32, -41, "#310711", "#fff0df");
+      drawMouth(-39, -31, "#ff8b83");
+      break;
+    case "void-emperor":
+      drawXEye(-31, -42, "#160b20", "#f4dce9");
+      drawXEye(33, -42, "#160b20", "#f4dce9");
+      drawMouth(-39, -34, "#f06dc8"); drawMouth(37, -34, "#f06dc8");
+      break;
+    case "skeleton-knight":
+      // Empty sockets and a crooked jaw beneath the helmet.
+      drawXEye(-10, -25, "#171b27", "#e8f0ef");
+      drawXEye(7, -25, "#171b27", "#e8f0ef");
+      rect(-4, -16, 8, 3, "#242a37");
+      rect(-3, -15, 2, 2, "#fff1c9"); rect(2, -16, 2, 2, "#fff1c9");
+      break;
+    case "magma-snail":
+      drawXEye(-13, -5, "#53211e", "#fff0a2");
+      drawXEye(-2, -4, "#53211e", "#fff0a2");
+      drawMouth(-7, 14, "#ff8b4b");
+      break;
+    case "firebird":
+      drawXEye(-7, -17, "#6e1724", "#fff0ac");
+      drawMouth(-13, -9, "#ffbc55");
+      rect(-18, -12, 5, 3, "#351b2a");
+      break;
+    case "snowman-devil":
+      drawXEye(-9, -22, "#47315d", "#f8f2ff");
+      drawXEye(7, -22, "#47315d", "#f8f2ff");
+      drawMouth(0, -11, "#b54452");
+      rect(-5, -14, 3, 2, "#fffafa"); rect(3, -14, 3, 2, "#fffafa");
+      break;
+    case "chimera":
+      drawXEye(-43, -27, "#291814", "#fff0cc");
+      drawXEye(17, -34, "#34231b", "#fff0bd");
+      drawXEye(63, -29, "#26331d", "#f7d15f");
+      drawMouth(-47, -16, "#c0833b");
+      break;
+    case "tree-turtle":
+      drawXEye(-63, -1, "#1b3527", "#e5f1a8");
+      drawMouth(-68, 4, "#789c61");
+      break;
+    case "snow-goddess":
+      drawXEye(-3, -64, "#203e6a", "#ffffff");
+      drawXEye(3, -64, "#203e6a", "#ffffff");
+      drawMouth(0, -57, "#b96782");
+      break;
+  }
+
+  tinySplat(19, -14, "#fff6db");
+  rect(-22, -22, 2, 2, "#ffffff");
+  ctx.restore();
 }
 
 function drawVoidEmperorAura(time) {
@@ -5449,10 +5668,22 @@ function drawVoidEmperorAura(time) {
     const a = time / 700 + i * 1.047;
     const x = 235 + Math.cos(a) * (42 + (i % 2) * 12);
     const y = 72 + Math.sin(a * 1.4) * 34;
-    rect(x, y, 5 + (i % 2) * 3, 5 + (i % 3) * 2, i % 2 ? "#8f55aa" : "#5b3d78");
+    rect(x, y, 5 + (i % 2) * 3, 5 + (i % 3) * 2, i % 2 ? "#754092" : "#291337");
   }
-  ctx.globalAlpha = 0.35;
-  rect(184, 32, 102, 86, "#2b173e");
+  // Avoid a flat rectangular aura: only a few stepped violet wisps frame the body.
+  ctx.globalAlpha = 0.28;
+  rect(191, 47, 5, 18, "#321747");
+  rect(198, 36, 6, 10, "#47235f");
+  rect(270, 49, 5, 19, "#321747");
+  rect(264, 34, 6, 11, "#47235f");
+  rect(207, 23, 13, 3, "#49235e");
+  rect(246, 20, 12, 3, "#49235e");
+  rect(210, 111, 12, 3, "#2e1741");
+  rect(247, 109, 14, 3, "#2e1741");
+  const glint = (Math.sin(time / 190) + 1) / 2;
+  ctx.globalAlpha = 0.35 + glint * 0.55;
+  rect(188, 58, 3, 2, "#66e9e6"); rect(275, 39, 3, 2, "#fa74d1");
+  rect(226, 13, 2, 2, "#f6d27b"); rect(260, 82, 2, 3, "#7dece7");
   ctx.restore();
 }
 
@@ -5472,10 +5703,308 @@ function drawVoidEmperorCrown() {
    SLIME
    ========================================================= */
 
+/* =========================================================
+   NEW STAGE ENEMIES — four custom pixel sprites
+   ========================================================= */
+
+function drawSkeletonKnight(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const sway = Math.round(Math.sin(time / 170) * 1);
+  const swordLift = Math.round(Math.sin(time / 210) * 1);
+  const capeWave = Math.round(Math.sin(time / 145) * 2);
+
+  // Ground shadow and a ragged, single-piece midnight cape.
+  rect(-29, 45, 58, 4, "#202536");
+  rect(-21, 8, 12, 26 + capeWave, "#34364b");
+  rect(-18, 12, 12, 23 + capeWave, "#292c40");
+  rect(-21, 31 + capeWave, 6, 4, "#202438");
+  rect(-14, 33 + capeWave, 6, 3, "#202438");
+  rect(-7, 34 + capeWave, 5, 2, "#202438");
+
+  // Feet and greaves.
+  rect(-13, 31, 9, 11, "#323947"); rect(4, 31, 10, 11, "#303746");
+  rect(-12, 33, 5, 6, "#8995a5"); rect(6, 33, 5, 6, "#768395");
+  rect(-16, 40, 14, 6, "#252b38"); rect(2, 40, 15, 6, "#222936");
+  rect(-14, 41, 8, 2, "#b8c3cf"); rect(4, 41, 9, 2, "#9ba9bb");
+
+  // Sword: stepped silver blade and cross guard bob slightly as if readied for battle.
+  ctx.save();
+  ctx.translate(11, swordLift);
+  rect(12, -21, 4, 21, "#394152");
+  rect(13, -29, 3, 10, "#7c8b9f");
+  rect(14, -36, 2, 9, "#c5d2dc");
+  rect(14, -41, 2, 6, "#eef6f7");
+  rect(9, -21, 10, 3, "#d3b56b");
+  rect(13, -18, 3, 8, "#6c4c38");
+  rect(11, -11, 7, 3, "#d3b56b");
+  ctx.restore();
+
+  // Shield on the left arm, marked with a worn gold cross.
+  rect(-31, -7, 12, 20, "#242b3b");
+  rect(-29, -9, 10, 19, "#a7b6c7");
+  rect(-27, -7, 7, 14, "#586982");
+  rect(-25, -6, 3, 12, "#d4dce1");
+  rect(-29, -1, 10, 3, "#d4b36d");
+  rect(-29, 8, 3, 4, "#323c50"); rect(-22, 8, 3, 4, "#323c50");
+
+  // Shoulder armor, ribbed cuirass, jointed arms and skeletal hands.
+  rect(-15, -7, 11, 10, "#485365"); rect(5, -8, 12, 10, "#404a5c");
+  rect(-14, -8, 8, 3, "#c0cad3"); rect(7, -9, 8, 3, "#bbc8d3");
+  rect(-9, -4, 20, 21, "#3a4354");
+  rect(-7, -5, 16, 18, "#8a97a7");
+  rect(-5, -4, 12, 4, "#d6dfe4");
+  rect(-6, 1, 14, 3, "#5b687a"); rect(-6, 7, 14, 3, "#5b687a");
+  rect(-4, 13, 10, 3, "#c2ccd2");
+  rect(-17, 0, 5, 12, "#b8c4cc"); rect(-17, 10, 7, 3, "#eef2e8");
+  rect(14, 0, 5, 12, "#acbac6"); rect(12, 10, 7, 3, "#eef2e8");
+  rect(-12, 16, 23, 6, "#30394a"); rect(-10, 17, 19, 3, "#b6c1cc");
+  rect(-7, 21, 6, 4, "#747f91"); rect(2, 21, 6, 4, "#69768a");
+
+  // Skull head and open iron helm, with bone highlights and deep empty sockets.
+  rect(-12 + sway, -30, 24, 17, "#c7c8bb");
+  rect(-10 + sway, -33, 19, 5, "#e4dfc9");
+  rect(-14 + sway, -27, 4, 12, "#a5a99e"); rect(10 + sway, -27, 4, 12, "#9ca195");
+  rect(-11 + sway, -28, 7, 6, "#202333"); rect(3 + sway, -28, 7, 6, "#202333");
+  rect(-9 + sway, -27, 3, 3, "#f0d8a1"); rect(5 + sway, -27, 3, 3, "#f0d8a1");
+  rect(-2 + sway, -22, 4, 3, "#777e80");
+  rect(-8 + sway, -18, 16, 4, "#777d7e");
+  for (let i = 0; i < 5; i++) rect(-7 + i * 3 + sway, -17, 2, 3, "#f3e8cd");
+  // Crowned helmet rim and dark steel cap.
+  rect(-15 + sway, -34, 30, 5, "#252c3a");
+  rect(-12 + sway, -39, 24, 7, "#424e63");
+  rect(-9 + sway, -41, 18, 4, "#6e7d90");
+  rect(-6 + sway, -43, 12, 3, "#a8b6c4");
+  rect(-2 + sway, -43, 4, 5, "#bd4d54");
+  rect(-16 + sway, -32, 3, 8, "#657488"); rect(13 + sway, -32, 3, 8, "#657488");
+  // Animated eye glint and a few armor pixels.
+  if (Math.floor(time / 180) % 3 !== 0) {
+    rect(-8 + sway, -26, 2, 2, "#ffe7a3"); rect(6 + sway, -26, 2, 2, "#ffe7a3");
+  }
+  rect(-2, 4, 3, 3, "#e1bf72"); rect(0, 6, 2, 2, "#fff0b5");
+  ctx.restore();
+}
+
+function drawMagmaSnail(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const bodyBob = Math.round(Math.sin(time / 185) * 1);
+  const feeler = Math.round(Math.sin(time / 135) * 2);
+  const glow = Math.floor((Math.sin(time / 115) + 1) * 2);
+
+  rect(-30, 34, 58, 4, "#24202b");
+  // Slug body and flattened foot.
+  rect(-25, 17 + bodyBob, 48, 13, "#7d302b");
+  rect(-21, 12 + bodyBob, 36, 12, "#b5432e");
+  rect(-16, 10 + bodyBob, 26, 8, "#e45d32");
+  rect(-20, 27 + bodyBob, 44, 5, "#4c292e");
+  rect(-16, 29 + bodyBob, 31, 2, "#e7853a");
+  rect(-14, 16 + bodyBob, 5, 7, "#f68b3c");
+  rect(0, 18 + bodyBob, 4, 6, "#f58a3a");
+  rect(12, 20 + bodyBob, 6, 6, "#8e352a");
+
+  // Obsidian shell: one broad stepped dome with a visible molten spiral.
+  rect(-5, -24, 10, 4, "#252633");
+  rect(-13, -21, 27, 5, "#343342");
+  rect(-19, -16, 38, 7, "#242633");
+  rect(-22, -9, 43, 13, "#1b202b");
+  rect(-19, -7, 37, 9, "#3b3440");
+  rect(-14, -4, 27, 8, "#171d27");
+  // Pixelated lava seams flicker without blurring the silhouette.
+  rect(-17, -15, 4, 3, "#e24b2c"); rect(-14, -12, 3, 4, "#ff9b43");
+  rect(-8, -18, 3, 3, "#ff6236"); rect(-5, -15, 5, 3, "#f9b348");
+  rect(4, -16, 5, 3, "#c83b30"); rect(8, -13, 3, 5, "#ff8b3d");
+  rect(12, -8, 4, 4, "#ffb34f"); rect(7, -5, 5, 3, "#e84b2e");
+  rect(-4, -7, 3, 4, "#ffad42"); rect(-10, -5, 4, 3, "#d9432f");
+  rect(-1, -2, 4 + glow, 2, "#ffd15f");
+  rect(-18, -7, 3, 5, "#62606a"); rect(16, -7, 3, 5, "#525361");
+  rect(-12, -18, 4, 2, "#93909b"); rect(4, -17, 5, 2, "#787987");
+
+  // Two eye stalks bounce independently; bright amber eyes read clearly at sprite scale.
+  rect(-18, -2 - feeler + bodyBob, 3, 9 + feeler, "#d85a31");
+  rect(-17, -5 - feeler, 7, 6, "#542930"); rect(-17, -5 - feeler, 6, 4, "#ffd36b");
+  rect(-15, -4 - feeler, 3, 3, "#fff5b0"); rect(-14, -3 - feeler, 2, 3, "#2b222d");
+  rect(-6, -1 + feeler + bodyBob, 3, 8 - feeler, "#d85a31");
+  rect(-7, -4 + feeler, 7, 6, "#542930"); rect(-7, -4 + feeler, 6, 4, "#ffd36b");
+  rect(-5, -3 + feeler, 3, 3, "#fff5b0"); rect(-4, -2 + feeler, 2, 3, "#2b222d");
+  rect(-20, 13 + bodyBob, 8, 2, "#552833");
+  rect(-17, 14 + bodyBob, 4, 2, "#f7a34b");
+
+  // A few square embers rise from the shell.
+  for (let i = 0; i < 4; i++) {
+    const lift = Math.floor((time / (95 + i * 13) + i * 7) % 13);
+    const ex = -13 + i * 9 + (i % 2 ? 2 : -1);
+    ctx.save(); ctx.globalAlpha = Math.max(.12, .72 - lift / 18);
+    rect(ex, -20 - lift, i % 2 ? 2 : 1, i % 2 ? 2 : 1, i % 2 ? "#ffcf63" : "#ff6339");
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawFirebird(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const flap = Math.round(Math.sin(time / 115) * 5);
+  const tail = Math.round(Math.sin(time / 165) * 2);
+  const ember = Math.floor((time / 100) % 4);
+
+  rect(-29, 51, 58, 3, "#2a202f");
+  // Tail feathers trail back in a layered fan.
+  rect(13, 14 + tail, 8, 9, "#9e2536");
+  rect(18, 12 + tail, 7, 10, "#d83c32");
+  rect(22, 7 + tail, 6, 12, "#ff6b32");
+  rect(25, 2 + tail, 5, 13, "#ffb13f");
+  rect(18, 18 + tail, 5, 10, "#f34b31");
+  rect(12, 25 + tail, 5, 6, "#ffd061");
+
+  // Far wing first; the scalloped feather rows move in chunky pixel steps.
+  rect(-9, -7 - flap, 12, 8, "#8b2338");
+  rect(-19, -12 - flap, 13, 7, "#b72c37");
+  rect(-27, -19 - flap, 11, 7, "#db3a34");
+  rect(-33, -27 - flap, 9, 7, "#ff6334");
+  rect(-26, -11 - flap, 9, 6, "#e84b31");
+  rect(-20, -4 - flap, 9, 6, "#ff8a35");
+  rect(-12, 1 - flap, 10, 6, "#ffc14b");
+  rect(-30, -25 - flap, 6, 3, "#ffd05a");
+  rect(-22, -14 - flap, 7, 3, "#ff9b3d");
+  rect(-15, -6 - flap, 6, 3, "#ffd05a");
+
+  // Near wing with a stronger ember edge. It folds and opens as one stepped silhouette.
+  rect(1, -10 + flap, 12, 9, "#802034");
+  rect(8, -17 + flap, 12, 7, "#b52b36");
+  rect(16, -22 + flap, 11, 7, "#db3b35");
+  rect(23, -27 + flap, 9, 7, "#ff6637");
+  rect(12, -10 + flap, 10, 6, "#e64a31");
+  rect(5, -4 + flap, 10, 6, "#ff8435");
+  rect(0, 1 + flap, 10, 6, "#ffc14b");
+  rect(23, -25 + flap, 6, 3, "#ffe078");
+  rect(16, -19 + flap, 7, 3, "#ff9e3d");
+  rect(8, -10 + flap, 6, 3, "#ffd05a");
+
+  // Curved torso, belly feathers and shoulders.
+  rect(-9, -8, 20, 21, "#9d2637");
+  rect(-7, -8, 16, 18, "#e34232");
+  rect(-5, -4, 12, 15, "#ff8b38");
+  rect(-3, 0, 8, 10, "#ffc451");
+  rect(-8, 9, 15, 6, "#b52d36");
+  rect(-2, -9, 8, 4, "#ffd05a");
+  rect(-11, -11, 7, 6, "#b52d36"); rect(5, -10, 7, 6, "#c93435");
+
+  // Head, hooked beak, crest and bright eye.
+  rect(-13, -24, 15, 14, "#d33a32");
+  rect(-11, -27, 11, 6, "#ff6b36");
+  rect(-9, -30, 6, 5, "#ffb540");
+  rect(-5, -28, 4, 4, "#ffd45e");
+  rect(-17, -20, 6, 4, "#a92335");
+  rect(-21, -18, 7, 5, "#ffd05a"); rect(-25, -17, 5, 3, "#ff8b3d");
+  rect(-9, -20, 6, 5, "#411f2a"); rect(-8, -19, 3, 2, "#fff4bb");
+  rect(-14, -14, 8, 3, "#842237");
+  rect(-4, -11, 4, 4, "#ffbd45");
+
+  // Feet and hooked talons.
+  rect(-7, 13, 6, 12, "#842537"); rect(3, 13, 6, 12, "#842537");
+  rect(-10, 23, 10, 4, "#ffc248"); rect(2, 23, 10, 4, "#ffc248");
+  rect(-10, 25, 4, 5, "#fff0a1"); rect(-2, 25, 3, 4, "#fff0a1");
+  rect(3, 25, 4, 5, "#fff0a1"); rect(9, 25, 3, 4, "#fff0a1");
+
+  // Flickering pixel sparks around the wings.
+  for (let i = 0; i < 5; i++) {
+    const px = -28 + i * 14 + (i % 2 ? 2 : -2);
+    const py = -30 + ((i * 5 + ember) % 13);
+    ctx.save(); ctx.globalAlpha = .45 + ((i + ember) % 3) * .16;
+    rect(px, py, i % 2 ? 2 : 1, i % 2 ? 2 : 1, i % 2 ? "#ffe37b" : "#ff7540");
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawSnowmanDevil(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  const wobble = Math.round(Math.sin(time / 145) * 1);
+  const wing = Math.round(Math.sin(time / 115) * 3);
+  const eyeGlow = Math.floor((time / 170) % 2);
+
+  rect(-29, 42, 58, 4, "#273044");
+
+  // Tiny bat wings, animated as chunky stepped silhouettes behind the snowballs.
+  rect(-23, 1 + wing, 9, 6, "#473b68");
+  rect(-29, -3 + wing, 9, 5, "#62527c");
+  rect(-32, -9 + wing, 7, 7, "#3d355b");
+  rect(-27, 5 + wing, 7, 5, "#342b4d");
+  rect(14, 1 - wing, 9, 6, "#473b68");
+  rect(20, -3 - wing, 9, 5, "#62527c");
+  rect(25, -9 - wing, 7, 7, "#3d355b");
+  rect(19, 5 - wing, 7, 5, "#342b4d");
+
+  // Bottom snowball and stubby feet.
+  rect(-20, 15, 40, 20, "#a8d9ed");
+  rect(-24, 20, 48, 13, "#d7f1f8");
+  rect(-17, 17, 32, 17, "#f3fdff");
+  rect(-20, 29, 37, 5, "#97c8e0");
+  rect(-17, 33, 12, 5, "#4c5974"); rect(5, 33, 13, 5, "#46536f");
+  rect(-19, 36, 15, 4, "#252b42"); rect(4, 36, 16, 4, "#252b42");
+  rect(-15, 35, 8, 2, "#92a9bb"); rect(8, 35, 8, 2, "#92a9bb");
+
+  // Middle snowball, icy highlights and coal buttons.
+  rect(-18, -1 + wobble, 36, 22, "#9bc9df");
+  rect(-21, 4 + wobble, 42, 14, "#d9f2f8");
+  rect(-15, 1 + wobble, 30, 19, "#f4fcff");
+  rect(-12, 16 + wobble, 25, 3, "#a7d1e4");
+  rect(-3, 6 + wobble, 5, 5, "#30374c"); rect(-2, 7 + wobble, 2, 2, "#ecf4fc");
+  rect(-3, 14 + wobble, 5, 4, "#41455d");
+
+  // Twig arms with dark, pointed pixel fingers.
+  rect(-22, 5 + wobble, 10, 3, "#654338"); rect(-27, 0 + wobble, 3, 7, "#79513b");
+  rect(-29, -4 + wobble, 3, 5, "#79513b"); rect(-25, -1 + wobble, 4, 3, "#79513b");
+  rect(12, 6 + wobble, 10, 3, "#654338"); rect(24, 1 + wobble, 3, 7, "#79513b");
+  rect(24, -3 + wobble, 3, 5, "#79513b"); rect(20, 0 + wobble, 4, 3, "#79513b");
+
+  // Red scarf loops around the neck, trailing to one side like a fluttering ribbon.
+  rect(-17, -3 + wobble, 34, 5, "#9e273f");
+  rect(-14, -4 + wobble, 27, 3, "#ef5261");
+  rect(9, -1 + wobble, 7, 10, "#bd3049");
+  rect(13, 3 + wobble, 6, 8 + wing, "#ef5261");
+  rect(15, 9 + wing, 4, 3, "#ff8590");
+
+  // Head, horns and the little devil's face.
+  rect(-16, -28 + wobble, 32, 28, "#9ccde2");
+  rect(-20, -23 + wobble, 40, 18, "#dff5fb");
+  rect(-14, -28 + wobble, 27, 24, "#f5fdff");
+  rect(-18, -32 + wobble, 8, 8, "#453251");
+  rect(-21, -38 + wobble, 6, 9, "#6a3e69");
+  rect(-17, -42 + wobble, 4, 6, "#c44950");
+  rect(10, -32 + wobble, 8, 8, "#453251");
+  rect(15, -38 + wobble, 6, 9, "#6a3e69");
+  rect(16, -42 + wobble, 4, 6, "#c44950");
+  rect(-12, -23 + wobble, 9, 7, "#382c48");
+  rect(4, -23 + wobble, 9, 7, "#382c48");
+  rect(-10, -21 + wobble, 4, 3, eyeGlow ? "#ff6266" : "#ffbd66");
+  rect(6, -21 + wobble, 4, 3, eyeGlow ? "#ff6266" : "#ffbd66");
+  // Carrot nose points right, with a warm orange tip.
+  rect(-1, -18 + wobble, 8, 4, "#ef873b");
+  rect(5, -17 + wobble, 5, 3, "#ffb957");
+  rect(9, -16 + wobble, 3, 2, "#ff713b");
+  // Crooked grin with tiny blocky fangs.
+  rect(-9, -11 + wobble, 20, 6, "#3c2b47");
+  rect(-7, -10 + wobble, 16, 3, "#a62e45");
+  rect(-6, -11 + wobble, 3, 3, "#f9fdff"); rect(4, -11 + wobble, 3, 3, "#f9fdff");
+  rect(-1, -7 + wobble, 6, 2, "#ed6680");
+  // Pixel-ice highlights and a few dark snow speckles.
+  rect(-12, -25 + wobble, 5, 2, "#ffffff"); rect(6, -27 + wobble, 5, 2, "#ffffff");
+  rect(-11, 10 + wobble, 2, 2, "#77adc9"); rect(10, 12 + wobble, 2, 2, "#9bcbe0");
+  ctx.restore();
+}
+
 function drawSlime(
   x,
   y,
-  scale
+  scale,
+  time = 0
 ) {
   ctx.save();
   ctx.translate(x, y);
@@ -5484,6 +6013,11 @@ function drawSlime(
   /* contact shadow */
   rect(-28, 37, 56, 5, "#202337");
   rect(-22, 36, 44, 3, "#2b2a40");
+
+  // The gel body bobs independently of its shadow, like a soft creature breathing.
+  const gelBob = Math.round(Math.sin((time || 0) / 165) * 2);
+  ctx.save();
+  ctx.translate(0, gelBob);
 
   /*
     Pudding-like gel body.
@@ -5564,17 +6098,43 @@ function drawSlime(
   rect(-8, 22, 16, 2, "#4b2d5b");
   ctx.restore();
 
-  /* eyes */
-  rect(-12, -2, 7, 10, "#262438");
-  rect(6, -2, 7, 10, "#262438");
-  rect(-10, 0, 2, 2, "#f7eaf0");
-  rect(8, 0, 2, 2, "#f7eaf0");
-  rect(-10, 0, 1, 1, "#ffffff");
-  rect(8, 0, 1, 1, "#ffffff");
-
-  /* mouth */
-  rect(-4, 12, 9, 3, "#3b2d45");
-  rect(-2, 12, 5, 1, "#b987ad");
+  /* Dizzy spiral eyes: deliberately mismatched pixel coils for a goofy, dazed expression. */
+  const eyeRoll = Math.round(Math.sin((time || 0) / 118) * 1);
+  const swirlTick = Math.floor((time || 0) / 280) % 2;
+  rect(-15, -5, 11, 13, "#4a2d59");
+  rect(-14, -4, 9, 11, "#fff8fc");
+  rect(4, -5, 11, 13, "#4a2d59");
+  rect(5, -4, 9, 11, "#fff8fc");
+  // Larger, chunky spiral pupils fill most of each eye while preserving a white rim.
+  // Left eye: broad clockwise square coil.
+  rect(-13 + eyeRoll, -3, 7, 2, "#35233f");
+  rect(-7 + eyeRoll, -2, 2, 6, "#35233f");
+  rect(-12 + eyeRoll, 2, 6, 2, "#35233f");
+  rect(-13 + eyeRoll, 0, 2, 3, "#35233f");
+  rect(-10 + eyeRoll, -1, 4, 2, "#35233f");
+  rect(-10 + eyeRoll, -1, 3, 1, "#8a55a0");
+  rect(-8 + eyeRoll, swirlTick ? 0 : 1, 2, 2, "#b77ac8");
+  rect(-12 + eyeRoll, -2, 2, 1, "#f7e8fb");
+  // Right eye coils the opposite way, with a tiny jitter that suggests dizziness.
+  rect(6 - eyeRoll, -3, 7, 2, "#35233f");
+  rect(6 - eyeRoll, -2, 2, 6, "#35233f");
+  rect(6 - eyeRoll, 2, 6, 2, "#35233f");
+  rect(12 - eyeRoll, 0, 2, 3, "#35233f");
+  rect(8 - eyeRoll, -1, 4, 2, "#35233f");
+  rect(8 - eyeRoll, -1, 3, 1, "#8a55a0");
+  rect(7 - eyeRoll, swirlTick ? 1 : 0, 2, 2, "#b77ac8");
+  rect(12 - eyeRoll, -2, 1, 1, "#f7e8fb");
+  /* lopsided open mouth and dangling tongue */
+  const tongueWiggle = Math.round(Math.sin((time || 0) / 146) * 1);
+  rect(-5, 8, 12, 8, "#39223f");
+  rect(-4, 9, 10, 5, "#211a31");
+  // One tiny crooked tooth peeks over the lip.
+  rect(3, 8, 2, 2, "#fff5fa");
+  rect(-2, 10, 7, 4, "#b94f82");
+  rect(-1, 13, 6, 4, "#e56e9d");
+  rect(tongueWiggle, 16, 4, 4, "#f28bab");
+  rect(1 + tongueWiggle, 17, 2, 3, "#ffc0d0");
+  rect(2, 13, 1, 4, "#ffadc6");
 
   /* crown */
   rect(12, -30, 6, 10, "#c6903f");
@@ -5582,6 +6142,7 @@ function drawSlime(
   rect(13, -30, 3, 3, "#f4cf78");
   rect(17, -27, 2, 2, "#8e642d");
 
+  ctx.restore(); // animated gel layer
   ctx.restore();
 }
 
@@ -5607,10 +6168,8 @@ function drawBat(
     scale
   );
 
-  const flap =
-    Math.sin(
-      time / 100
-    ) * 4;
+  const flap = Math.round(Math.sin((time || 0) / 100) * 5);
+  const batBob = Math.round(Math.sin((time || 0) / 245));
 
   rect(
     -25,
@@ -5654,7 +6213,7 @@ function drawBat(
 
   rect(
     -15,
-    -18,
+    -18 + batBob,
     30,
     44,
     "#5a4a71"
@@ -5742,7 +6301,8 @@ function drawBat(
 function drawMandraga(
   x,
   y,
-  scale
+  scale,
+  time = 0
 ) {
   ctx.save();
 
@@ -5780,21 +6340,24 @@ function drawMandraga(
     "#5d7c56"
   );
 
+  const leafSway = Math.round(Math.sin((time || 0) / 220) * 2);
   rect(
-    -10,
+    -10 - leafSway,
     -35,
     8,
     18,
     "#78925d"
   );
+  rect(-9 - leafSway, -34, 4, 12, "#a7c17c");
 
   rect(
-    2,
+    2 + leafSway,
     -38,
     8,
     20,
     "#78925d"
   );
+  rect(4 + leafSway, -36, 4, 13, "#b0ca82");
 
   rect(
     -13,
@@ -5823,101 +6386,128 @@ function drawMandraga(
   ctx.restore();
 }
 
-function drawWolf(
-  x,
-  y,
-  scale
-) {
+function drawWolf(x, y, scale, time = 0) {
   ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
 
-  ctx.translate(
-    x,
-    y
-  );
+  // Low, long contact shadow keeps the wolf grounded on four paws.
+  rect(-43, 37, 82, 5, "#202337");
+  rect(-34, 36, 61, 3, "#2c3041");
 
-  ctx.scale(
-    scale,
-    scale
-  );
+  // Tail behind the rump: a stepped up/down wag keeps the silhouette animated.
+  const tailWag = Math.round(Math.sin((time || 0) / 155) * 3);
+  ctx.save();
+  ctx.translate(0, tailWag);
+  rect(22, -11, 11, 9, "#252b3d");
+  rect(28, -17, 10, 9, "#353c50");
+  rect(34, -24, 9, 9, "#454d61");
+  rect(37, -30, 8, 8, "#292f43");
+  rect(31, -22, 5, 4, "#7e8796");
+  rect(35, -29, 5, 4, "#9ba2ac");
+  rect(41, -33, 4, 6, "#242a3b");
+  ctx.restore();
 
-  rect(
-    -35,
-    32,
-    70,
-    5,
-    "#202337"
-  );
+  // Far-side legs first, with clear joints and broad paws.
+  rect(-4, 3, 7, 18, "#292f42");
+  rect(-5, 18, 8, 12, "#343b4e");
+  rect(-10, 28, 14, 5, "#252b3b");
+  rect(17, 1, 8, 20, "#292f42");
+  rect(18, 18, 8, 12, "#343a4d");
+  rect(14, 28, 15, 5, "#252b3b");
 
-  rect(
-    -28,
-    -10,
-    48,
-    38,
-    "#4c5369"
-  );
+  // Body silhouette: longer back, deep chest and a slightly tucked waist.
+  rect(-24, -13, 47, 29, "#252a3c");
+  rect(-21, -16, 39, 28, "#454d61");
+  rect(-18, -18, 30, 7, "#5d6578");
+  rect(-6, -14, 24, 8, "#596174");
+  rect(-24, -7, 13, 18, "#3b4356");
+  rect(-20, 7, 14, 8, "#596174");
+  // Back fur and the raised shoulder ruff are stepped, not rounded.
+  rect(-16, -21, 7, 5, "#626b7d");
+  rect(-9, -19, 7, 4, "#70798a");
+  rect(-2, -17, 7, 4, "#535c70");
+  rect(6, -15, 7, 4, "#687183");
+  rect(13, -13, 6, 4, "#4d566a");
+  rect(-25, -11, 6, 7, "#6e7788");
+  rect(-27, -4, 6, 7, "#515b6f");
+  rect(-24, 3, 6, 6, "#394256");
+  // Back and belly shading gives the torso volume.
+  rect(-16, -12, 25, 4, "#7e8796");
+  rect(-14, -8, 18, 3, "#6c7586");
+  rect(-16, 0, 18, 6, "#41495c");
+  rect(-14, 6, 15, 5, "#30374a");
 
-  rect(
-    -20,
-    -27,
-    32,
-    25,
-    "#5d647b"
-  );
+  // Near-side legs, separated at the chest and haunches.
+  rect(-18, 4, 8, 17, "#333a4e");
+  rect(-18, 18, 7, 13, "#454d60");
+  rect(-23, 29, 14, 5, "#242a3b");
+  rect(7, 5, 8, 16, "#333a4e");
+  rect(7, 18, 8, 13, "#41495d");
+  rect(3, 29, 15, 5, "#242a3b");
+  rect(-16, 7, 3, 10, "#747d8b");
+  rect(9, 8, 3, 9, "#626b7e");
+  rect(-20, 32, 5, 2, "#9ea6b1");
+  rect(5, 32, 5, 2, "#8d96a5");
 
-  rect(
-    -24,
-    -36,
-    10,
-    18,
-    "#383e54"
-  );
+  // Neck mane and head make a small alert nod, separate from the grounded paws.
+  const headNod = Math.round(Math.sin((time || 0) / 265) * 1);
+  ctx.save();
+  ctx.translate(0, headNod);
+  rect(-30, -27, 17, 17, "#272d40");
+  rect(-28, -30, 17, 17, "#51596d");
+  rect(-25, -32, 13, 5, "#697284");
+  rect(-29, -22, 8, 14, "#626b7e");
+  rect(-24, -15, 11, 8, "#d1d2d1");
+  rect(-19, -12, 10, 7, "#e0ded8");
 
-  rect(
-    4,
-    -36,
-    10,
-    18,
-    "#383e54"
-  );
+  // Upright pointed ears with dark borders and muted inner fur.
+  rect(-30, -43, 8, 15, "#242a3c");
+  rect(-28, -41, 4, 10, "#535b70");
+  rect(-26, -38, 2, 5, "#b7838a");
+  rect(-17, -41, 7, 13, "#242a3c");
+  rect(-15, -39, 3, 8, "#555d71");
+  rect(-14, -36, 2, 4, "#b7838a");
 
-  rect(
-    -14,
-    -15,
-    6,
-    7,
-    "#e0b66e"
-  );
+  // Long muzzle facing left, with nose, jaw, fangs and a bright amber eye.
+  rect(-39, -29, 18, 18, "#24293b");
+  rect(-36, -28, 14, 13, "#727b8b");
+  rect(-43, -24, 15, 8, "#858d99");
+  rect(-45, -23, 5, 5, "#242637");
+  rect(-42, -22, 2, 2, "#c2c5c7");
+  rect(-39, -15, 13, 5, "#252738");
+  rect(-37, -14, 10, 3, "#d8d6d1");
+  rect(-36, -15, 2, 4, "#f8ecd8");
+  rect(-30, -15, 2, 4, "#f8ecd8");
+  rect(-31, -26, 8, 4, "#282638");
+  rect(-29, -25, 4, 2, "#f2c76c");
+  rect(-28, -25, 2, 2, "#fff0ba");
+  rect(-33, -29, 12, 3, "#262b3d");
+  rect(-23, -27, 4, 3, "#32384a");
 
-  rect(
-    5,
-    -15,
-    6,
-    7,
-    "#e0b66e"
-  );
+  // Distinctive silver-grey cheek and layered night fur highlights.
+  rect(-31, -18, 7, 3, "#a2a8b0");
+  rect(-27, -14, 5, 2, "#858d9b");
+  rect(-21, -7, 4, 3, "#9aa2ad");
+  rect(-9, -10, 6, 3, "#8e97a5");
+  rect(2, -8, 5, 3, "#87909e");
+  rect(15, -8, 4, 3, "#343b4e");
+  rect(21, -2, 3, 4, "#303648");
 
-  rect(
-    -5,
-    2,
-    10,
-    5,
-    "#282938"
-  );
-
+  ctx.restore();
   ctx.restore();
 }
 
 function drawPhantom(
   x,
   y,
-  scale
+  scale,
+  time = 0
 ) {
   ctx.save();
-
-  ctx.translate(
-    x,
-    y
-  );
+  const drift = Math.round(Math.sin((time || 0) / 235) * 2);
+  const floatY = Math.round(Math.sin((time || 0) / 180) * 2);
+  ctx.translate(x + drift, y + floatY);
 
   ctx.scale(
     scale,
@@ -5971,83 +6561,125 @@ function drawPhantom(
     4,
     "#312b40"
   );
+  const wisp = Math.round(Math.sin((time || 0) / 140) * 2);
+  ctx.globalAlpha = 0.55;
+  rect(-34 - wisp, -3, 5, 3, "#a49bc5");
+  rect(29 + wisp, 6, 5, 3, "#b7add3");
+  ctx.globalAlpha = 1;
 
   ctx.restore();
 }
 
-function drawGolem(
-  x,
-  y,
-  scale
-) {
+function drawGolem(x, y, scale, time = 0) {
   ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
 
-  ctx.translate(
-    x,
-    y
-  );
+  // Heavy contact shadow and feet planted apart for a humanoid stance.
+  rect(-40, 45, 80, 6, "#202337");
+  rect(-31, 44, 62, 3, "#343947");
 
-  ctx.scale(
-    scale,
-    scale
-  );
+  // Legs are visibly separate, jointed and weight-bearing.
+  rect(-21, 16, 17, 22, "#353b49");
+  rect(4, 16, 17, 22, "#292f3d");
+  rect(-19, 19, 13, 14, "#747b87");
+  rect(6, 19, 13, 14, "#626a77");
+  rect(-18, 31, 13, 8, "#505765");
+  rect(7, 31, 13, 8, "#454c5b");
+  rect(-23, 37, 21, 7, "#292f3d");
+  rect(3, 37, 22, 7, "#252b39");
+  rect(-20, 38, 12, 2, "#a4a8ad");
+  rect(7, 38, 13, 2, "#8a9099");
+  rect(-14, 17, 4, 5, "#a0a5ac");
+  rect(11, 17, 4, 5, "#858c98");
 
-  rect(
-    -35,
-    42,
-    70,
-    6,
-    "#202337"
-  );
+  // Keep the heavy feet planted while the upper frame shifts its weight by whole pixels.
+  const lean = Math.round(Math.sin((time || 0) / 390));
+  ctx.save();
+  ctx.translate(lean, 0);
 
-  rect(
-    -28,
-    -30,
-    56,
-    72,
-    "#626777"
-  );
+  // Arms hang from broad shoulder plates, with elbow and fist blocks.
+  rect(-38, -21, 17, 22, "#303644");
+  rect(21, -21, 17, 22, "#292f3d");
+  rect(-36, -18, 13, 14, "#737a86");
+  rect(23, -18, 13, 14, "#5b6370");
+  rect(-34, -5, 12, 12, "#454c5a");
+  rect(22, -5, 12, 12, "#3e4553");
+  rect(-35, 5, 14, 12, "#5c6370");
+  rect(21, 5, 14, 12, "#4b5260");
+  rect(-37, 14, 17, 9, "#303643");
+  rect(20, 14, 17, 9, "#292f3d");
+  rect(-34, 15, 11, 5, "#858b94");
+  rect(23, 15, 11, 5, "#6a727f");
+  rect(-36, 21, 14, 6, "#414856");
+  rect(21, 21, 14, 6, "#383f4d");
+  // Knuckles: heavy, square hands rather than floating shoulder blocks.
+  rect(-35, 24, 12, 5, "#292f3b");
+  rect(22, 24, 12, 5, "#252b38");
+  rect(-32, 24, 3, 2, "#9298a0");
+  rect(25, 24, 3, 2, "#7e8691");
 
-  rect(
-    -35,
-    -10,
-    70,
-    40,
-    "#727787"
-  );
+  // Shoulder silhouette forms a broad, angular humanoid frame.
+  rect(-31, -29, 62, 19, "#252b38");
+  rect(-35, -25, 15, 14, "#3b424f");
+  rect(20, -25, 15, 14, "#303745");
+  rect(-29, -29, 15, 7, "#8b919b");
+  rect(15, -29, 15, 7, "#777f8c");
+  rect(-24, -25, 48, 18, "#666e7c");
+  rect(-20, -22, 40, 10, "#7f8791");
+  rect(-18, -17, 36, 7, "#59616f");
 
-  rect(
-    -20,
-    -45,
-    40,
-    20,
-    "#515563"
-  );
+  // Narrow waist and central torso separate chest from hips.
+  rect(-18, -13, 36, 31, "#252b39");
+  rect(-15, -11, 30, 27, "#737a86");
+  rect(-12, -8, 24, 20, "#858c96");
+  rect(-10, -5, 20, 14, "#6b7380");
+  rect(-17, 8, 34, 8, "#464d5b");
+  rect(-10, 13, 20, 5, "#363d4a");
+  // Glowing furnace core in a recessed chest plate.
+  rect(-8, -8, 16, 15, "#242735");
+  rect(-5, -6, 10, 11, "#9b563f");
+  rect(-3, -5, 6, 9, "#f2a45b");
+  rect(-2, -3, 4, 5, "#ffe1a0");
+  rect(-5, -8, 10, 2, "#a8adb4");
+  rect(-5, 5, 10, 2, "#4d5562");
+  const corePulse = Math.sin((time || 0) / 175) > 0;
+  ctx.globalAlpha = corePulse ? 0.42 : 0.22;
+  rect(-4, -5, 8, 9, corePulse ? "#ffcf75" : "#f47f45");
+  ctx.globalAlpha = 1;
+  rect(-2, -3, 4, 5, corePulse ? "#fff0b0" : "#f6a75c");
 
-  rect(
-    -15,
-    -10,
-    8,
-    8,
-    "#d69a61"
-  );
+  // Neck joint and compact helmeted head: clearly humanoid proportions.
+  rect(-7, -34, 14, 8, "#323845");
+  rect(-5, -32, 10, 5, "#777e89");
+  rect(-17, -48, 34, 21, "#252b39");
+  rect(-14, -46, 28, 17, "#69717e");
+  rect(-11, -43, 22, 11, "#8b929b");
+  rect(-16, -39, 32, 5, "#525a68");
+  rect(-18, -36, 36, 6, "#303644");
+  // Flat brow and glowing slit eyes.
+  rect(-12, -40, 24, 3, "#252a37");
+  rect(-10, -38, 7, 3, "#e19b56");
+  rect(3, -38, 7, 3, "#e19b56");
+  rect(-9, -38, 4, 1, "#fff0bd");
+  rect(4, -38, 4, 1, "#fff0bd");
+  rect(-8, -32, 16, 3, "#414856");
+  rect(-5, -31, 10, 2, "#252a37");
 
-  rect(
-    7,
-    -10,
-    8,
-    8,
-    "#d69a61"
-  );
+  // Plate seams, bolts and top-left steel reflections.
+  rect(-25, -24, 5, 3, "#c2c6cb");
+  rect(20, -24, 5, 3, "#9ca3ad");
+  rect(-14, -19, 3, 3, "#c6cbd0");
+  rect(11, -19, 3, 3, "#a6adb5");
+  rect(-15, -2, 3, 3, "#bdc1c7");
+  rect(12, -2, 3, 3, "#555c69");
+  rect(-17, 11, 3, 3, "#afb5bd");
+  rect(14, 11, 3, 3, "#555c69");
+  rect(-3, 15, 6, 2, "#aeb4bc");
+  rect(-29, -13, 3, 5, "#aeb5bd");
+  rect(26, -13, 3, 5, "#4e5664");
 
-  rect(
-    -10,
-    10,
-    20,
-    5,
-    "#363947"
-  );
-
+  ctx.restore(); // upper-body weight shift
   ctx.restore();
 }
 
@@ -6055,12 +6687,15 @@ function drawGolem(
    BEACH MONSTERS
    ========================================================= */
 
-function drawShrimp(x, y, scale) {
+function drawShrimp(x, y, scale, time = 0) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
 
   rect(-30, 30, 58, 5, "#202337");
+  const hop = Math.max(0, Math.round(Math.sin((time || 0) / 220) * 3));
+  ctx.save();
+  ctx.translate(0, -hop);
 
   /* antennae */
   rect(-27, -29, 2, 15, "#552d3d");
@@ -6112,57 +6747,111 @@ function drawShrimp(x, y, scale) {
   rect(-2, -1, 10, 2, "#ffad76");
   rect(7, 7, 7, 2, "#ff9b6b");
 
+  ctx.restore(); // springing shrimp body
   ctx.restore();
 }
 
-function drawFish(x, y, scale) {
+function drawFish(x, y, scale, time = 0) {
   ctx.save();
   ctx.translate(x, y);
   ctx.scale(scale, scale);
 
-  rect(-31, 28, 62, 5, "#202337");
+  // Grounding shadow
+  ctx.globalAlpha = .48;
+  rect(-35, 28, 58, 3, "#162635");
+  rect(-26, 31, 43, 2, "#253b47");
+  ctx.globalAlpha = 1;
 
-  /* tail */
-  rect(20, -7, 12, 18, "#164f68");
-  rect(27, -3, 7, 10, "#247f99");
-  rect(22, -10, 8, 5, "#4caec0");
-  rect(22, 11, 8, 5, "#1d607a");
+  // Tail fin wags by whole pixels; the body remains comparatively steady.
+  const tailWag = Math.round(Math.sin((time || 0) / 130) * 3);
+  ctx.save();
+  ctx.translate(0, tailWag);
+  rect(17, -8, 9, 21, "#103e58");
+  rect(24, -14, 8, 10, "#103e58");
+  rect(27, -18, 9, 9, "#103e58");
+  rect(24, 8, 8, 10, "#103e58");
+  rect(27, 12, 9, 9, "#103e58");
+  rect(21, -10, 7, 7, "#247b95");
+  rect(25, -14, 6, 6, "#56c6d0");
+  rect(22, 4, 7, 7, "#226e8a");
+  rect(25, 12, 6, 6, "#3ba8bb");
+  rect(20, -1, 6, 3, "#7fe0df");
+  ctx.restore();
 
-  /* main body */
-  rect(-24, -16, 45, 33, "#16566f");
-  rect(-28, -10, 52, 22, "#207f98");
-  rect(-22, -13, 39, 20, "#3ab0c2");
-  rect(-17, -10, 31, 16, "#61cad6");
+  // Dorsal and lower fins, stepped silhouette
+  rect(-7, -25, 16, 7, "#103e58");
+  rect(-3, -31, 9, 8, "#103e58");
+  rect(3, -28, 8, 6, "#103e58");
+  rect(-3, -25, 9, 5, "#3ca9bd");
+  rect(1, -29, 5, 6, "#7fe0df");
+  rect(-4, 15, 19, 7, "#103e58");
+  rect(2, 18, 13, 6, "#103e58");
+  rect(-1, 16, 13, 4, "#257c96");
+  rect(4, 19, 7, 3, "#4ab8c8");
+  // Side fin
+  rect(-2, -1, 18, 7, "#103e58");
+  rect(4, 2, 17, 7, "#23748d");
+  rect(8, 3, 10, 3, "#69d6da");
+  rect(11, 6, 6, 2, "#b3ece6");
 
-  /* belly */
-  rect(-17, 7, 31, 7, "#a9dedc");
-  rect(-11, 12, 21, 4, "#d6e9df");
+  // Body outline with a tapered snout facing the hero
+  rect(-24, -21, 42, 32, "#102f49");
+  rect(-30, -15, 50, 23, "#102f49");
+  rect(-35, -8, 14, 14, "#102f49");
+  rect(-26, -18, 39, 28, "#207e98");
+  rect(-31, -12, 13, 16, "#2b91a9");
+  rect(-21, -23, 26, 5, "#102f49");
+  rect(-17, -26, 15, 4, "#143f58");
+  rect(-21, -20, 32, 4, "#42b9c7");
 
-  /* fins */
-  rect(-2, -21, 13, 6, "#2c8fa6");
-  rect(0, -25, 9, 5, "#49b8c5");
-  rect(-7, 15, 17, 5, "#155b73");
-  rect(2, 19, 11, 4, "#277f96");
-  rect(-30, -1, 8, 11, "#17627a");
-  rect(-35, 2, 9, 7, "#349bae");
+  // Three-band shading: wet top light, saturated body, deep underside
+  toneRect(-25, -17, 39, 12, "#b8f6e9", "#55d3d6", "#278da7");
+  toneRect(-30, -10, 45, 14, "#66e1e0", "#2eafc3", "#176582");
+  toneRect(-24, 2, 36, 8, "#d7f0df", "#8cd7d5", "#236f8a");
+  rect(-26, -15, 32, 2, "#d7fff1");
+  rect(-29, -9, 6, 2, "#8df1e6");
+  rect(-19, -3, 28, 2, "#4bc5d2");
+  rect(-16, 5, 25, 2, "#e8f5e2");
+  rect(0, 9, 12, 3, "#1c6b86");
 
-  /* face */
-  rect(-26, -8, 8, 16, "#1b6179");
-  rect(-25, -7, 5, 10, "#3ba6b8");
-  rect(-14, -7, 6, 6, "#122c43");
-  rect(-13, -6, 2, 2, "#fff8d4");
+  // Gills and staggered scale marks make the body read as a fish
+  rect(-7, -10, 2, 10, "#19738c");
+  rect(-3, -9, 2, 8, "#68d8d9");
+  rect(1, -8, 2, 7, "#18718a");
+  rect(5, -8, 2, 6, "#55c9d2");
+  rect(-4, -2, 4, 2, "#9be9df");
+  rect(4, -3, 4, 2, "#c1f5e8");
+  rect(10, -5, 3, 2, "#278fa8");
+  rect(7, 1, 3, 2, "#278fa8");
+  rect(14, -1, 3, 2, "#1b6c86");
+  rect(11, 4, 3, 2, "#c2eee3");
 
-  /* mouth + teeth */
-  rect(-31, 3, 10, 6, "#152638");
-  rect(-30, 4, 8, 2, "#e9f0df");
-  rect(-27, 8, 2, 3, "#ffffff");
-  rect(-23, 8, 2, 3, "#ffffff");
+  // Angry eye with a slanted brow
+  rect(-25, -15, 9, 8, "#10283f");
+  rect(-23, -14, 6, 5, "#fff3d4");
+  rect(-21, -13, 4, 5, "#15293e");
+  rect(-20, -13, 2, 2, "#ffffff");
+  rect(-27, -18, 10, 3, "#10334b");
+  rect(-26, -19, 7, 2, "#6ce0df");
 
-  /* scales / highlights */
-  rect(-3, -8, 5, 2, "#b5edf0");
-  rect(6, -4, 5, 2, "#8be0e4");
-  rect(-1, 1, 6, 2, "#86dbe0");
-  rect(8, 5, 5, 2, "#5dbdc9");
+  // Open mouth and exposed jagged teeth
+  rect(-35, -3, 14, 11, "#10283e");
+  rect(-33, -2, 10, 8, "#8e344d");
+  rect(-34, -4, 12, 3, "#163750");
+  rect(-33, -3, 3, 4, "#fff9df");
+  rect(-28, -3, 3, 5, "#fff9df");
+  rect(-23, -2, 2, 4, "#f9f0db");
+  rect(-31, 3, 3, 4, "#fffdf0");
+  rect(-26, 4, 3, 4, "#fffdf0");
+  rect(-22, 3, 2, 3, "#e8f1df");
+  rect(-35, 6, 4, 3, "#10334b");
+
+  // Glossy edge and a few bright fin rays
+  rect(-24, -20, 19, 2, "#e5fff2");
+  rect(18, -10, 4, 2, "#83e4df");
+  rect(28, -12, 3, 5, "#a4ede7");
+  rect(28, 10, 3, 5, "#7ad7d8");
+  rect(6, -23, 3, 3, "#c9fff0");
 
   ctx.restore();
 }
@@ -6170,82 +6859,293 @@ function drawFish(x, y, scale) {
 function drawPoseidon(x, y, scale, time) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.scale(scale, scale);
+  // A larger, imposing sea god. The broad bare chest and fish tail replace the old armor/legs.
+  ctx.scale(scale * 1.08, scale * 1.08);
 
-  rect(-37, 46, 74, 6, "#202337");
+  // Broad shadow and ripples
+  ctx.globalAlpha = .45;
+  rect(-43, 54, 84, 4, "#142c3d");
+  rect(-32, 58, 64, 2, "#254755");
+  ctx.globalAlpha = 1;
+  const ripple = Math.round(Math.sin(time / 640) * 1);
+  rect(-42, 49 + ripple, 18, 2, "#6bd9e0");
+  rect(21, 48 - ripple, 22, 2, "#8ee9e8");
+  rect(-34, 53, 9, 2, "#3baec2");
+  rect(29, 53, 8, 2, "#46bdce");
 
-  /* water aura */
-  const ripple = Math.sin(time / 520) * 2;
-  rect(-36, 38 + ripple, 20, 2, "#6cd4df");
-  rect(14, 36 - ripple, 24, 2, "#8ce3e7");
-  rect(-28, 43, 9, 2, "#4bb3c7");
+  // Trident sways by whole pixels, distinct from the body motion.
+  const tridentSway = Math.round(Math.sin((time || 0) / 285) * 1);
+  ctx.save();
+  ctx.translate(tridentSway, 0);
+  rect(34, -50, 4, 91, "#7c5029");
+  rect(35, -49, 2, 88, "#d4a54b");
+  rect(31, -61, 3, 16, "#9d6c34");
+  rect(32, -62, 2, 14, "#ffe18b");
+  rect(39, -61, 3, 16, "#9d6c34");
+  rect(40, -62, 2, 14, "#f4cb68");
+  rect(35, -68, 4, 18, "#81552c");
+  rect(36, -68, 2, 17, "#fff0a1");
+  rect(29, -49, 15, 4, "#8b5d30");
+  rect(30, -48, 13, 2, "#f1c865");
+  rect(33, -42, 6, 3, "#f6dc87");
+  ctx.restore();
 
-  /* cape / water mantle */
-  rect(-31, -7, 17, 45, "#164f72");
-  rect(14, -7, 17, 45, "#154b6d");
-  rect(-28, -11, 13, 33, "#287c98");
-  rect(15, -11, 13, 33, "#27758f");
-  rect(-24, -13, 8, 23, "#52b7c8");
-  rect(17, -13, 7, 23, "#48acbf");
+  // Large mermaid tail: dark outline, teal scales, wide split fin
+  rect(-17, 6, 34, 13, "#103d57");
+  rect(-19, 16, 38, 12, "#103d57");
+  rect(-16, 25, 32, 12, "#103d57");
+  rect(-12, 34, 24, 10, "#103d57");
+  rect(-7, 42, 14, 8, "#103d57");
+  toneRect(-15, 8, 29, 13, "#8be4df", "#2b9eb0", "#155470");
+  toneRect(-16, 18, 32, 11, "#62cdd1", "#21879f", "#104460");
+  toneRect(-13, 27, 26, 10, "#4dc0c9", "#1a7794", "#103b57");
+  toneRect(-9, 35, 18, 9, "#45b3c0", "#1d6d8c", "#0e344e");
+  rect(-9, 12, 7, 3, "#c1f2e7");
+  rect(1, 14, 8, 3, "#79d9d7");
+  rect(-5, 21, 8, 3, "#6cd1d3");
+  rect(5, 25, 7, 3, "#2c9caf");
+  rect(-8, 31, 7, 3, "#5bc8ce");
+  rect(1, 35, 7, 3, "#2c8ba4");
+  // Tail fin spreads to both sides in stepped fan shapes
+  rect(-12, 43, 24, 5, "#103d57");
+  rect(-25, 39, 17, 7, "#103d57");
+  rect(-31, 33, 12, 8, "#103d57");
+  rect(-28, 29, 10, 6, "#103d57");
+  rect(8, 39, 17, 7, "#103d57");
+  rect(19, 33, 12, 8, "#103d57");
+  rect(18, 29, 10, 6, "#103d57");
+  rect(-23, 39, 13, 4, "#2a8da5");
+  rect(-29, 34, 8, 5, "#5dc8ce");
+  rect(-26, 30, 6, 3, "#91e2dc");
+  rect(10, 39, 13, 4, "#1b7896");
+  rect(21, 34, 8, 5, "#2e9bb0");
+  rect(21, 30, 6, 3, "#58c5cb");
+  rect(-12, 45, 10, 2, "#86e1dc");
+  rect(3, 45, 9, 2, "#2e8da5");
+  // Fine, staggered scale rows; the small blocks keep the tail unmistakably pixel-art.
+  rect(-12, 10, 3, 2, "#c6f5e8"); rect(-5, 11, 3, 2, "#348fa4"); rect(3, 10, 3, 2, "#b7eee3"); rect(10, 11, 3, 2, "#176a88");
+  rect(-8, 15, 3, 2, "#238aa1"); rect(0, 16, 3, 2, "#b5f0e4"); rect(7, 15, 3, 2, "#277f98");
+  rect(-11, 21, 3, 2, "#9ae8df"); rect(-3, 22, 3, 2, "#14617f"); rect(5, 21, 3, 2, "#8bdfd9");
+  rect(-8, 27, 3, 2, "#23849b"); rect(0, 28, 3, 2, "#a2e7de"); rect(6, 27, 3, 2, "#176783");
+  rect(-5, 34, 3, 2, "#7ad9d5"); rect(2, 35, 3, 2, "#165e7c");
+  // Long stepped fin rays flow outward from the tail fan's base.
+  rect(-16, 39, 3, 2, "#67cbd1"); rect(-20, 36, 3, 2, "#3da5b7"); rect(-24, 33, 3, 2, "#88e3dc");
+  rect(13, 39, 3, 2, "#51bac8"); rect(18, 36, 3, 2, "#287f9a"); rect(22, 33, 3, 2, "#75d5d6");
 
-  /* legs */
-  rect(-17, 20, 13, 24, "#184d70");
-  rect(5, 20, 13, 24, "#163f64");
-  rect(-15, 21, 9, 18, "#397f9a");
-  rect(7, 21, 8, 18, "#2d718c");
-  rect(-19, 42, 16, 5, "#d1ab5a");
-  rect(5, 42, 16, 5, "#c1954a");
+  // Head, arms and shoulders breathe together; the tail stays anchored in the water.
+  const upperBreath = Math.round(Math.sin((time || 0) / 320));
+  ctx.save();
+  ctx.translate(0, upperBreath);
 
-  /* torso armor */
-  rect(-19, -10, 38, 34, "#164f71");
-  rect(-15, -8, 31, 30, "#2e8da6");
-  rect(-9, -5, 18, 23, "#56bfd0");
-  rect(-4, -7, 8, 24, "#d4ac55");
-  rect(-12, 5, 24, 3, "#f1d06d");
-  rect(-10, 14, 20, 3, "#8bdfe5");
+  // Longer, broader arms behind the torso: exposed outer silhouettes now reach farther down.
+  toneRect(-39, -25, 17, 17, "#f2d0ad", "#c98b6c", "#8b554a", false);
+  rect(-42, -22, 8, 12, "#a76b59");
+  rect(-40, -20, 5, 6, "#f6daba");
+  toneRect(-41, -11, 16, 19, "#e9bd95", "#b87862", "#70464a", false);
+  rect(-39, -7, 6, 6, "#f5d8b5");
+  rect(-40, 0, 5, 4, "#9f6255");
+  toneRect(22, -25, 17, 17, "#f4d4b2", "#c88a69", "#85504a", false);
+  rect(31, -22, 9, 12, "#a96857");
+  rect(30, -20, 5, 6, "#f7d9b6");
+  toneRect(25, -11, 16, 19, "#e8b98e", "#ae715c", "#70434a", false);
+  rect(28, -7, 7, 6, "#f6d9b4");
+  rect(32, 0, 5, 4, "#95594f");
+  // Small contour planes on the forearms make the extended limbs read as sculpted muscle.
+  rect(-37, -2, 3, 2, "#f5d7b3");
+  rect(-34, 1, 3, 2, "#9f6255");
+  rect(34, -2, 3, 2, "#f1c9a4");
+  rect(31, 1, 3, 2, "#95594f");
+  // Gold bracers
+  rect(-37, -10, 13, 4, "#80522c");
+  rect(-36, -10, 11, 2, "#edc65c");
+  rect(23, -8, 13, 4, "#80522c");
+  rect(24, -8, 11, 2, "#f1cb67");
+  rect(-34, -8, 2, 2, "#fff0a1");
+  rect(-30, -8, 2, 2, "#bd8138");
+  rect(27, -6, 2, 2, "#fff0a1");
+  rect(32, -6, 2, 2, "#bd8138");
 
-  /* arms */
-  rect(-30, -4, 12, 25, "#154966");
-  rect(-34, 8, 11, 7, "#2d809a");
-  rect(18, -5, 12, 28, "#143e61");
-  rect(23, 6, 10, 7, "#2b7892");
+  // Broad torso silhouette and pectoral muscles — intentionally bare, no armor
+  rect(-25, -28, 50, 40, "#102f49");
+  rect(-22, -27, 44, 37, "#8e5149");
+  rect(-21, -26, 42, 33, "#c88768");
+  toneRect(-21, -26, 21, 17, "#f4d5b0", "#d39a76", "#a76858", false);
+  toneRect(0, -26, 21, 17, "#eac29a", "#bf8063", "#80504b", false);
+  // Shoulder caps
+  toneRect(-27, -27, 15, 10, "#f5d9b7", "#d49a77", "#92594f", false);
+  toneRect(12, -27, 15, 10, "#eac29a", "#bd8065", "#79494a", false);
+  // Pecs with upper-left highlights and lower-right shadows
+  rect(-19, -21, 18, 12, "#9e6254");
+  rect(1, -21, 18, 12, "#87504b");
+  toneRect(-18, -21, 16, 9, "#ffe0bc", "#e0a17a", "#b36f5e", false);
+  toneRect(2, -21, 15, 9, "#f3cda7", "#d18d6d", "#985b51", false);
+  rect(-17, -12, 14, 3, "#b87561");
+  rect(3, -12, 13, 3, "#965b52");
+  rect(-1, -19, 2, 10, "#8b514d");
+  rect(-2, -18, 1, 7, "#f7d7b1");
+  // Sculpted abs, still chunky pixel art
+  toneRect(-12, -8, 10, 7, "#f0c69f", "#cd8e6b", "#95584e", false);
+  toneRect(2, -8, 10, 7, "#e3b38c", "#ba7a61", "#7e4b49", false);
+  toneRect(-11, 0, 9, 6, "#e8bd95", "#bd7f62", "#8b514b", false);
+  toneRect(2, 0, 9, 6, "#dba981", "#aa6b59", "#764447", false);
+  rect(-1, -7, 2, 14, "#87504c");
+  rect(-20, 4, 40, 5, "#7f4a47");
+  rect(-17, 4, 34, 3, "#bd7d61");
+  // Collar bone highlights / sea-god pendant
+  rect(-14, -25, 8, 2, "#ffe5c6");
+  rect(6, -25, 8, 2, "#f5d5ad");
+  rect(-4, -23, 8, 5, "#d8ac50");
+  rect(-2, -22, 4, 3, "#51d0d9");
+  // Extra sculpted planes: shoulders, chest separations, obliques and a defined navel.
+  rect(-29, -23, 5, 3, "#ffe2bf");
+  rect(-31, -19, 4, 5, "#d89572");
+  rect(23, -23, 5, 3, "#f9d2aa");
+  rect(27, -19, 4, 5, "#b97760");
+  rect(-18, -19, 10, 2, "#ffe7c7");
+  rect(8, -19, 9, 2, "#f8d7b5");
+  rect(-19, -14, 14, 2, "#a96357");
+  rect(5, -14, 13, 2, "#8b4f4b");
+  rect(-15, -10, 5, 2, "#f4cba4");
+  rect(10, -10, 5, 2, "#e2b18a");
+  // Serratus and oblique muscle blocks create a more athletic V-shaped torso.
+  rect(-19, -7, 5, 3, "#b97860");
+  rect(-17, -3, 4, 3, "#a86656");
+  rect(14, -7, 5, 3, "#8f504c");
+  rect(13, -3, 4, 3, "#81494a");
+  rect(-12, -1, 8, 1, "#a56858");
+  rect(4, -1, 8, 1, "#92564e");
+  rect(-11, 2, 8, 1, "#a46658");
+  rect(4, 2, 8, 1, "#8a4f4a");
+  rect(-1, -8, 2, 11, "#81504b");
+  rect(-1, 1, 2, 2, "#f2c19a");
+  rect(-2, 2, 4, 2, "#734546");
+  rect(-1, 2, 2, 1, "#e4b28d");
+  // Small pixel highlights make the skin read as sculpted rather than flat.
+  rect(-25, -20, 3, 2, "#f7d9b8");
+  rect(22, -20, 3, 2, "#f4cba7");
+  rect(-21, -9, 2, 4, "#f5d0aa");
+  rect(19, -9, 2, 4, "#d9a17d");
+  rect(-8, 1, 3, 2, "#f4c79f");
+  rect(6, 1, 3, 2, "#d5a079");
+  // Pixel-level muscle contour: rib edges, lower-ab highlights and subtle skin creases.
+  rect(-17, -8, 2, 3, "#f7d8b5");
+  rect(15, -8, 2, 3, "#e3b18c");
+  rect(-13, -4, 2, 2, "#f3c99f");
+  rect(11, -4, 2, 2, "#dbab83");
+  rect(-11, 5, 3, 1, "#f3caa3");
+  rect(8, 5, 3, 1, "#d9a47e");
+  rect(-23, -16, 2, 4, "#e5af89");
+  rect(21, -16, 2, 4, "#c38367");
 
-  /* head / beard */
-  rect(-14, -34, 28, 20, "#2c7e95");
-  rect(-10, -36, 20, 6, "#4db5c3");
-  rect(-12, -18, 24, 12, "#b7d8d2");
-  rect(-8, -15, 16, 12, "#d8e7da");
-  rect(-17, -10, 6, 5, "#d0a24f");
-  rect(11, -10, 6, 5, "#bb8f45");
+  // Head is slightly enlarged against the torso/tail, aiming for an imposing ~6-head silhouette.
+  // This keeps the body muscular and broad without making the head look tiny.
+  ctx.save();
+  ctx.translate(0, -42);
+  ctx.scale(0.92, 0.92);
+  ctx.translate(0, 42);
 
-  /* face */
-  rect(-10, -28, 7, 4, "#173148");
-  rect(3, -28, 7, 4, "#173148");
-  rect(-8, -27, 2, 2, "#fff4d3");
-  rect(5, -27, 2, 2, "#fff4d3");
+  // Neck and head, with long white hair and a flowing white beard
+  rect(-9, -37, 18, 12, "#874e49");
+  rect(-8, -37, 15, 10, "#d49a77");
+  rect(-15, -55, 30, 23, "#10324a");
+  rect(-13, -53, 26, 20, "#c7896d");
+  rect(-12, -52, 24, 16, "#e8b994");
+  // Side hair / swept white locks
+  rect(-17, -53, 6, 17, "#e7e4d8");
+  rect(-15, -50, 5, 13, "#ffffff");
+  rect(11, -53, 6, 17, "#b7c7d1");
+  rect(12, -50, 4, 13, "#e5eee9");
+  rect(-14, -36, 6, 6, "#fffef0");
+  rect(8, -37, 7, 7, "#d9e4e1");
+  // Strong angular brows, deep-set sea-blue eyes, forehead creases and cheek planes.
+  rect(-11, -49, 6, 2, "#573a37");
+  rect(-7, -47, 5, 2, "#573a37");
+  rect(4, -47, 5, 2, "#513633");
+  rect(7, -49, 5, 2, "#513633");
+  rect(-10, -45, 7, 5, "#12344a");
+  rect(3, -45, 7, 5, "#12344a");
+  rect(-9, -44, 4, 3, "#e9f8f2");
+  rect(4, -44, 4, 3, "#e9f8f2");
+  rect(-8, -43, 2, 3, "#236b83");
+  rect(5, -43, 2, 3, "#236b83");
+  rect(-9, -43, 1, 1, "#ffffff");
+  rect(4, -43, 1, 1, "#ffffff");
+  rect(-12, -42, 2, 2, "#c2836a");
+  rect(10, -42, 2, 2, "#aa6c5b");
+  // Nose bridge, nostrils and a firm, frowning mouth under the moustache.
+  rect(-2, -43, 4, 4, "#f2c79f");
+  rect(-3, -40, 2, 2, "#b87560");
+  rect(2, -40, 2, 2, "#a86758");
+  rect(-2, -39, 4, 1, "#804a45");
+  rect(-4, -49, 3, 1, "#b97765");
+  rect(1, -49, 3, 1, "#a96959");
+  rect(-11, -36, 3, 2, "#f0c49d");
+  rect(8, -36, 3, 2, "#d7a07e");
+  // Mustache and long, forked beard silhouette
+  rect(-13, -39, 26, 8, "#b7c5cc");
+  rect(-12, -39, 24, 5, "#ffffff");
+  rect(-15, -37, 10, 5, "#e7eee8");
+  rect(5, -37, 10, 5, "#cbd9da");
+  rect(-11, -34, 22, 8, "#f6f5e9");
+  rect(-9, -28, 18, 6, "#dce5e0");
+  rect(-7, -24, 14, 5, "#c6d3d2");
+  rect(-5, -21, 10, 4, "#f8f6e9");
+  rect(-4, -18, 8, 3, "#dce7e2");
+  // Beard strands and highlights
+  rect(-12, -35, 2, 4, "#ffffff");
+  rect(-9, -32, 2, 7, "#ffffff");
+  rect(-6, -33, 2, 6, "#cbdad9");
+  rect(-3, -29, 2, 8, "#ffffff");
+  rect(1, -31, 2, 7, "#eef4ed");
+  rect(4, -32, 2, 7, "#eef4ed");
+  rect(8, -33, 2, 5, "#c5d6d6");
+  rect(10, -35, 2, 4, "#ffffff");
+  rect(-1, -24, 2, 5, "#ffffff");
+  rect(-4, -21, 2, 3, "#aabec2");
+  rect(3, -21, 2, 3, "#dce7e2");
 
-  /* crown */
-  rect(-14, -41, 28, 6, "#b67e33");
-  rect(-11, -47, 5, 8, "#e1b85f");
-  rect(-2, -51, 5, 12, "#f0cc70");
-  rect(6, -47, 5, 8, "#d9a84d");
-  rect(-7, -39, 14, 4, "#8a5a2c");
+  // Large gold crown sitting naturally on his hair
+  rect(-17, -58, 34, 6, "#8e5e28");
+  rect(-15, -61, 30, 5, "#c78e36");
+  rect(-14, -63, 6, 7, "#e6ba52");
+  rect(-6, -66, 7, 10, "#f8d875");
+  rect(3, -66, 7, 10, "#ffe795");
+  rect(10, -63, 6, 7, "#d6a244");
+  rect(-12, -59, 24, 2, "#fff0a0");
+  rect(-4, -57, 8, 3, "#377f9c");
+  rect(-2, -56, 4, 2, "#7de0e2");
+  // Crown engraving, jewel glints, layered side locks and tiny white-hair strands.
+  rect(-13, -62, 3, 2, "#fff0a1");
+  rect(5, -63, 3, 2, "#fff0a1");
+  rect(-1, -64, 3, 3, "#a4f1f0");
+  rect(-14, -48, 2, 5, "#f7fff7");
+  rect(-12, -44, 2, 4, "#c9d8d8");
+  rect(13, -48, 2, 5, "#ffffff");
+  rect(11, -44, 2, 4, "#b7c8cf");
+  rect(-8, -50, 3, 1, "#866056");
+  rect(5, -50, 3, 1, "#7c5149");
+  // Extra beard strands create a layered, wind-combed silhouette.
+  rect(-13, -32, 2, 5, "#c2d2d5");
+  rect(-10, -29, 2, 6, "#ffffff");
+  rect(-7, -26, 2, 5, "#eef5ef");
+  rect(6, -29, 2, 6, "#ffffff");
+  rect(9, -32, 2, 5, "#c6d7da");
+  rect(12, -35, 2, 4, "#eef7f0");
 
-  /* trident */
-  rect(29, -49, 3, 87, "#b7863f");
-  rect(25, -56, 3, 15, "#d8b95e");
-  rect(34, -56, 3, 15, "#d2ad55");
-  rect(30, -63, 3, 16, "#f1cf72");
-  rect(24, -58, 13, 3, "#e4c262");
-  rect(22, -53, 4, 4, "#c39a48");
-  rect(34, -53, 4, 4, "#bd9140");
+  ctx.restore(); // enlarged head / crown / beard pass
 
-  /* water highlights */
-  rect(-24, -1, 6, 2, "#a6eff0");
-  rect(13, -2, 6, 2, "#8ee5ea");
-  rect(-6, -3, 12, 2, "#d6f7f1");
-  rect(-28, 23, 7, 2, "#5fc3d1");
-  rect(18, 24, 8, 2, "#4fadc2");
+  // Hand gripping the trident, drawn over the shaft
+  rect(29, -17, 8, 7, "#8e554b");
+  rect(29, -17, 6, 4, "#f3c99f");
+  rect(33, -19, 5, 7, "#e8bc90");
+  rect(34, -17, 3, 3, "#fff0ce");
+  ctx.restore();
+
+  // Controlled, small water reflections (not flashing)
+  rect(-20, 14, 7, 2, "#b8f0e6");
+  rect(8, 19, 6, 2, "#5cc8d0");
+  rect(-6, 30, 5, 2, "#90e0db");
+  rect(3, 39, 5, 2, "#3b91a7");
 
   ctx.restore();
 }
@@ -6254,255 +7154,688 @@ function drawPoseidon(x, y, scale, time) {
    DRAGON
    ========================================================= */
 
-function drawDragon(
-  x,
-  y,
-  scale
-) {
+function drawDragon(x, y, scale, time = 0) {
   ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
 
-  ctx.translate(
-    x,
-    y
-  );
+  const t = time || 0;
+  const nearWingFlap = Math.round(Math.sin(t / 165) * 4);
+  const farWingFlap = Math.round(Math.sin(t / 165 + Math.PI) * 3);
+  const tailWag = Math.round(Math.sin(t / 205) * 2);
+  const breath = Math.round(Math.sin(t / 310));
 
-  ctx.scale(
-    scale,
-    scale
-  );
+  // Ground shadow and trailing tail remain crisp, stepped blocks.
+  rect(-55, 46, 108, 6, "#250812");
+  rect(-42, 44, 82, 3, "#3c101b");
+  ctx.save();
+  ctx.translate(0, tailWag);
+  rect(15, 4, 20, 12, "#330711");
+  rect(29, 2, 14, 11, "#330711");
+  rect(39, -2, 13, 10, "#330711");
+  rect(48, -8, 10, 12, "#330711");
+  rect(50, -12, 10, 7, "#330711");
+  rect(17, 6, 18, 7, "#94182a");
+  rect(31, 4, 12, 6, "#b62132");
+  rect(41, 0, 11, 5, "#d0323f");
+  rect(49, -7, 7, 7, "#ed4a4e");
+  rect(52, -11, 6, 4, "#ff7767");
+  rect(51, -5, 6, 4, "#4a0b18");
+  rect(28, -2, 4, 5, "#5a0e1e"); rect(29, -5, 4, 5, "#f05a5b");
+  rect(37, -5, 4, 5, "#5a0e1e"); rect(38, -8, 4, 5, "#d94149");
+  rect(46, -8, 4, 4, "#5a0e1e"); rect(47, -11, 4, 4, "#ff7767");
+  ctx.restore();
 
-  rect(
-    -43,
-    50,
-    86,
-    6,
-    "#1d2030"
-  );
+  // Far wing: a continuous crimson membrane with only the outer pixel contour darkened.
+  ctx.save(); ctx.translate(0, farWingFlap);
+  rect(-18, -25, 18, 13, "#310711");
+  rect(-25, -34, 14, 12, "#310711");
+  rect(-33, -43, 13, 12, "#310711");
+  rect(-42, -52, 14, 12, "#310711");
+  rect(-44, -56, 9, 8, "#310711");
+  rect(-16, -24, 14, 9, "#7c1424");
+  rect(-24, -33, 12, 9, "#9e1b2b");
+  rect(-32, -42, 11, 9, "#ba2635");
+  rect(-40, -50, 11, 8, "#d93640");
+  rect(-43, -54, 6, 5, "#f45c5b");
+  // Pixel ribs run inward as connected bands, not as borders around every step.
+  rect(-15, -23, 3, 8, "#e34a50"); rect(-21, -31, 3, 8, "#e34a50");
+  rect(-28, -39, 3, 8, "#ed5758"); rect(-35, -47, 3, 7, "#f46b66");
+  rect(-17, -20, 8, 2, "#f46b66"); rect(-26, -29, 7, 2, "#f46b66");
+  ctx.restore();
 
-  rect(
-    -45,
-    -34,
-    16,
-    45,
-    "#403b67"
-  );
+  // Near wing. Its whole-pixel travel creates a clear flap without blurred rotation.
+  ctx.save(); ctx.translate(0, nearWingFlap);
+  rect(2, -24, 17, 13, "#310711");
+  rect(10, -34, 15, 12, "#310711");
+  rect(19, -44, 14, 12, "#310711");
+  rect(29, -53, 13, 12, "#310711");
+  rect(39, -61, 11, 12, "#310711");
+  rect(5, -22, 12, 9, "#781322");
+  rect(13, -32, 12, 9, "#9e1b2c");
+  rect(22, -42, 11, 9, "#bd2635");
+  rect(32, -51, 10, 9, "#d93841");
+  rect(41, -59, 7, 9, "#f05255");
+  rect(8, -22, 3, 9, "#eb5559"); rect(15, -31, 3, 9, "#f35e5e");
+  rect(24, -41, 3, 9, "#f35e5e"); rect(34, -50, 3, 8, "#ff7670");
+  rect(43, -57, 3, 6, "#ff9080");
+  rect(10, -19, 8, 2, "#ff7a6c"); rect(19, -29, 8, 2, "#ff7a6c");
+  rect(29, -39, 8, 2, "#ff8d7a");
+  ctx.restore();
 
-  rect(
-    -40,
-    -45,
-    10,
-    20,
-    "#514b7b"
-  );
+  // Far legs first; feet stay grounded while the chest breathes by a single pixel.
+  rect(-13, 7, 9, 19, "#360a16"); rect(-14, 22, 10, 12, "#7b1424");
+  rect(-19, 32, 17, 6, "#2d0813"); rect(-16, 31, 7, 3, "#db3b45");
+  rect(14, 7, 10, 20, "#340914"); rect(15, 23, 10, 11, "#711221");
+  rect(11, 32, 17, 6, "#2d0813"); rect(14, 31, 7, 3, "#d63843");
 
-  rect(
-    -30,
-    -30,
-    10,
-    34,
-    "#514b7b"
-  );
+  ctx.save(); ctx.translate(0, breath);
+  // Long neck and throat taper into the head.
+  rect(-28, -36, 18, 21, "#310711");
+  rect(-25, -34, 14, 17, "#9a1a2b");
+  rect(-22, -29, 13, 12, "#c12c3a");
+  rect(-21, -25, 13, 8, "#e3484c");
+  rect(-20, -20, 14, 7, "#751322");
+  rect(-24, -17, 10, 8, "#390a16");
+  rect(-19, -36, 5, 6, "#550d1d"); rect(-19, -40, 4, 6, "#e3474d");
+  rect(-15, -31, 5, 6, "#600f20"); rect(-15, -35, 4, 6, "#bf2938");
 
-  rect(
-    29,
-    -34,
-    16,
-    45,
-    "#403b67"
-  );
+  // Full four-legged body, with a warm segmented belly and crimson scale plates.
+  rect(-18, -17, 40, 35, "#300711");
+  rect(-15, -15, 34, 29, "#94192a");
+  rect(-12, -17, 25, 7, "#bb2434");
+  rect(-8, -12, 23, 13, "#d33943");
+  rect(-12, -1, 30, 12, "#b52636");
+  rect(-10, 7, 24, 8, "#811525");
+  rect(-8, 1, 20, 4, "#f4c18d");
+  rect(-7, 5, 19, 4, "#e9a16f");
+  rect(-5, 9, 17, 4, "#c87550");
+  rect(-3, 13, 13, 3, "#8d3d32");
+  rect(-5, 2, 3, 3, "#ffe0aa"); rect(1, 6, 3, 3, "#ffd196"); rect(6, 10, 3, 3, "#e59a69");
 
-  rect(
-    30,
-    -45,
-    10,
-    20,
-    "#514b7b"
-  );
+  // Shoulder/forelegs have distinct elbows and ivory hooked claws.
+  rect(-19, -7, 11, 12, "#390a16"); rect(-18, -4, 8, 12, "#a01c2d");
+  rect(-17, 5, 8, 12, "#801525"); rect(-19, 15, 10, 6, "#350811");
+  rect(-19, 19, 4, 4, "#f5dfd0"); rect(-13, 19, 4, 4, "#fff0df");
+  rect(9, -5, 10, 12, "#350811"); rect(10, -2, 8, 12, "#a31e2e");
+  rect(11, 7, 8, 11, "#7c1424"); rect(9, 15, 11, 6, "#320710");
+  rect(10, 19, 4, 4, "#fff0df"); rect(16, 19, 4, 4, "#f1d6c7");
 
-  rect(
-    20,
-    -30,
-    10,
-    34,
-    "#514b7b"
-  );
+  // Near hind legs add weight and separate paws for a readable quadruped stance.
+  rect(14, 10, 11, 15, "#310711"); rect(15, 20, 10, 13, "#821526");
+  rect(11, 31, 17, 7, "#2c0813"); rect(16, 22, 4, 8, "#d33a43");
+  rect(13, 35, 4, 3, "#fff0df"); rect(20, 35, 4, 3, "#f4ded0");
+  rect(-8, 12, 9, 14, "#310711"); rect(-7, 22, 9, 11, "#771424");
+  rect(-11, 31, 16, 7, "#2c0813"); rect(-6, 24, 3, 6, "#d43a43");
+  rect(-8, 35, 4, 3, "#f8e3d6"); rect(-2, 35, 4, 3, "#e6cfc5");
+  ctx.restore();
 
-  rect(
-    -17,
-    -37,
-    34,
-    57,
-    "#57486d"
-  );
+  // Fierce head with long snout, fangs, horns and orange slit eye.
+  rect(-40, -49, 25, 21, "#300711");
+  rect(-37, -47, 20, 17, "#9a1b2c");
+  rect(-35, -43, 17, 10, "#d63842");
+  rect(-47, -39, 17, 10, "#310711");
+  rect(-45, -38, 14, 7, "#b62635");
+  rect(-45, -32, 14, 4, "#67101f");
+  rect(-44, -31, 3, 4, "#fff0df"); rect(-37, -31, 3, 4, "#fff0df");
+  rect(-48, -39, 4, 4, "#21060e"); rect(-47, -38, 2, 2, "#ffb069");
+  rect(-37, -43, 12, 4, "#430a17");
+  rect(-34, -42, 7, 4, "#ffc25f"); rect(-32, -42, 3, 3, "#fff0b4");
+  rect(-36, -37, 8, 3, "#f35b58"); rect(-32, -34, 7, 3, "#ab1f30");
+  rect(-24, -40, 4, 3, "#f58b71");
+  // Back-swept ivory horns stand out against the red scales.
+  rect(-35, -55, 5, 11, "#350812"); rect(-34, -59, 4, 7, "#ffcf9d");
+  rect(-31, -57, 4, 7, "#d8a277"); rect(-22, -54, 5, 10, "#350812");
+  rect(-21, -59, 4, 7, "#f3c18f"); rect(-18, -55, 4, 6, "#be805e");
 
-  rect(
-    -12,
-    -45,
-    24,
-    14,
-    "#705978"
-  );
+  // Dorsal ridges and scale highlights in warm red/orange blocks.
+  rect(-8, -22, 5, 7, "#390a16"); rect(-7, -26, 4, 6, "#ef4d51");
+  rect(0, -21, 5, 6, "#390a16"); rect(1, -24, 4, 5, "#d73943");
+  rect(7, -18, 5, 5, "#390a16"); rect(8, -21, 4, 4, "#c42d3b");
+  rect(15, -14, 5, 4, "#390a16"); rect(16, -17, 4, 4, "#e7474c");
+  rect(-13, -12, 8, 3, "#f05a5d"); rect(-2, -13, 7, 3, "#e94a51");
+  rect(8, -10, 5, 3, "#d83a45"); rect(17, -6, 4, 3, "#b92b3a");
+  rect(-18, -30, 5, 3, "#ff7069"); rect(-25, -40, 5, 2, "#ff9080");
+  rect(-6, 15, 3, 2, "#f4c18d"); rect(3, 17, 3, 2, "#f1b37b");
 
-  rect(
-    -28,
-    -55,
-    56,
-    30,
-    "#453b61"
-  );
+  ctx.restore();
+}
 
-  rect(
-    -34,
-    -46,
-    68,
-    22,
-    "#453b61"
-  );
+function drawVoidEmperor(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
 
-  rect(
-    -25,
-    -67,
-    9,
-    16,
-    "#d0a765"
-  );
+  const t = time || 0;
+  const upperFlap = Math.round(Math.sin(t / 150) * 4);
+  const lowerFlap = Math.round(Math.sin(t / 150 + 1.15) * 3);
+  const tailWag = Math.round(Math.sin(t / 210) * 2);
+  const headMotion = Math.round(Math.sin(t / 195) * 1);
 
-  rect(
-    16,
-    -67,
-    9,
-    16,
-    "#d0a765"
-  );
+  rect(-60, 47, 120, 6, "#100b1a");
+  rect(-46, 45, 92, 3, "#21132d");
 
-  rect(
-    -28,
-    -63,
-    7,
-    7,
-    "#b98b50"
-  );
+  // A long, segmented void-tail sits behind the four legs.
+  ctx.save(); ctx.translate(0, tailWag);
+  rect(18, 5, 18, 12, "#160c20"); rect(31, 3, 14, 11, "#160c20");
+  rect(41, -2, 13, 10, "#160c20"); rect(50, -8, 11, 10, "#160c20");
+  rect(56, -13, 9, 9, "#160c20");
+  rect(20, 7, 15, 7, "#3a2050"); rect(33, 5, 11, 6, "#4b2864");
+  rect(43, 0, 10, 5, "#5b3476"); rect(52, -6, 8, 6, "#71438c");
+  rect(58, -11, 5, 6, "#9a60b5");
+  rect(31, 0, 4, 5, "#8d54a9"); rect(41, -4, 4, 5, "#a16abd");
+  ctx.restore();
 
-  rect(
-    21,
-    -63,
-    7,
-    7,
-    "#b98b50"
-  );
+  // Wing painter: each membrane is a single connected stepped mass, with pixel ribs.
+  const drawWing = (side, upper, flap) => {
+    ctx.save();
+    ctx.scale(side, 1);
+    ctx.translate(0, flap);
+    if (upper) {
+      // dark contiguous outside silhouette
+      rect(8, -30, 15, 16, "#160b20"); rect(16, -40, 15, 14, "#160b20");
+      rect(25, -50, 14, 14, "#160b20"); rect(34, -59, 12, 13, "#160b20");
+      rect(42, -63, 10, 12, "#160b20"); rect(40, -50, 12, 13, "#160b20");
+      rect(34, -39, 12, 12, "#160b20"); rect(26, -30, 12, 11, "#160b20");
+      rect(16, -24, 15, 9, "#160b20");
+      // unified violet membrane; color bands touch rather than outlining each stair
+      rect(11, -29, 10, 12, "#3c2054"); rect(19, -39, 10, 12, "#51276b");
+      rect(28, -49, 10, 12, "#63327e"); rect(37, -58, 8, 11, "#794393");
+      rect(43, -60, 6, 8, "#8e52a8"); rect(40, -48, 8, 10, "#5a2b74");
+      rect(34, -37, 8, 10, "#4b2463"); rect(26, -29, 8, 9, "#3f2058");
+      // bright, chunky veins follow the wing frame
+      rect(14, -27, 3, 7, "#9863b2"); rect(18, -35, 3, 7, "#b17ac7");
+      rect(23, -43, 3, 7, "#b17ac7"); rect(32, -52, 3, 7, "#c28bd4");
+      rect(40, -59, 3, 6, "#d09be0"); rect(25, -30, 8, 2, "#8954a5");
+      // Jewel-toned accents break up the dark violet membrane without replacing its base.
+      rect(16, -31, 3, 2, "#63e7e4"); rect(27, -43, 3, 2, "#f36bcc");
+      rect(36, -54, 3, 2, "#f3d17c"); rect(43, -58, 2, 3, "#8af3ee");
+    } else {
+      rect(8, -20, 15, 13, "#160b20"); rect(17, -28, 14, 12, "#160b20");
+      rect(27, -36, 14, 12, "#160b20"); rect(37, -43, 12, 11, "#160b20");
+      rect(44, -42, 10, 11, "#160b20"); rect(40, -31, 12, 12, "#160b20");
+      rect(31, -23, 12, 10, "#160b20"); rect(20, -17, 14, 9, "#160b20");
+      rect(11, -16, 11, 8, "#160b20");
+      rect(11, -19, 10, 9, "#351a4a"); rect(19, -27, 10, 9, "#48225f");
+      rect(29, -35, 10, 9, "#5a2b72"); rect(39, -41, 8, 9, "#71408b");
+      rect(45, -39, 6, 8, "#81509b"); rect(40, -29, 8, 9, "#512467");
+      rect(31, -22, 8, 8, "#44205a"); rect(21, -16, 9, 7, "#381a4d");
+      rect(14, -18, 3, 7, "#8953a4"); rect(21, -25, 3, 7, "#a16ab7");
+      rect(30, -33, 3, 7, "#ae78c4"); rect(39, -39, 3, 6, "#c08bd2");
+      rect(16, -19, 3, 2, "#62e3e8"); rect(25, -27, 3, 2, "#ef65c5");
+      rect(35, -35, 3, 2, "#eed17b"); rect(45, -39, 2, 3, "#9af0eb");
+    }
+    ctx.restore();
+  };
+  // Two pairs of wings (four total), with different flap phases for a heavy, layered motion.
+  drawWing(-1, true, upperFlap);
+  drawWing(1, true, upperFlap);
+  drawWing(-1, false, lowerFlap);
+  drawWing(1, false, lowerFlap);
 
-  rect(
-    -17,
-    -29,
-    34,
-    18,
-    "#645073"
-  );
+  // Four limbs and hooked feet: a broad, grounded dragon body, not a humanoid torso.
+  rect(-21, 8, 12, 19, "#170b20"); rect(-21, 22, 12, 12, "#321945");
+  rect(-26, 32, 19, 6, "#130a1b"); rect(-22, 31, 8, 4, "#72428c");
+  rect(-3, 8, 11, 18, "#160b20"); rect(-2, 22, 11, 12, "#3c2053");
+  rect(-6, 32, 19, 6, "#130a1b"); rect(-1, 31, 8, 4, "#794a95");
+  rect(13, 7, 12, 20, "#160b20"); rect(14, 22, 12, 12, "#321945");
+  rect(10, 32, 19, 6, "#130a1b"); rect(15, 31, 8, 4, "#72428c");
+  rect(-12, 6, 11, 19, "#170b20"); rect(-11, 21, 11, 13, "#2e183f");
+  rect(-16, 32, 18, 6, "#130a1b"); rect(-12, 31, 7, 4, "#684080");
 
-  rect(
-    -18,
-    -43,
-    9,
-    7,
-    "#d58b82"
-  );
+  // The two necks emerge from one broad chest; they do not resemble two copies pasted on top.
+  rect(-29, -32, 17, 22, "#160b20"); rect(-27, -29, 13, 19, "#38204c");
+  rect(-24, -26, 9, 14, "#512b67"); rect(-23, -20, 8, 8, "#6b3c80");
+  rect(8, -32, 17, 22, "#160b20"); rect(10, -29, 13, 19, "#38204c");
+  rect(13, -26, 9, 14, "#512b67"); rect(14, -20, 8, 8, "#6b3c80");
 
-  rect(
-    9,
-    -43,
-    9,
-    7,
-    "#d58b82"
-  );
+  // One body breathes by a pixel; segmented belly plates and violet scales catch the light.
+  ctx.save(); ctx.translate(0, headMotion);
+  rect(-23, -20, 47, 38, "#160b20");
+  rect(-20, -18, 41, 34, "#321944");
+  rect(-16, -18, 33, 11, "#4a2860");
+  rect(-14, -10, 28, 15, "#5b3272");
+  rect(-17, 3, 33, 11, "#432258");
+  rect(-13, 0, 26, 4, "#b68ac6"); rect(-12, 4, 25, 4, "#9b6bb0");
+  rect(-10, 8, 22, 4, "#805493"); rect(-7, 12, 16, 3, "#573269");
+  rect(-11, -15, 7, 3, "#82529a"); rect(1, -14, 7, 3, "#76458c");
+  rect(-4, -6, 7, 3, "#c79ad5"); rect(7, -3, 6, 3, "#8d55a6");
+  // Small magical inlays: teal, hot pink and antique gold contrast with the void-purple armor.
+  rect(-17, -12, 3, 2, "#5ee7df"); rect(13, -11, 3, 2, "#ed62c5");
+  rect(-14, -3, 4, 2, "#e8c879"); rect(9, 5, 3, 2, "#5ee7df");
+  rect(-5, 11, 3, 2, "#ef6bc8"); rect(3, 13, 4, 2, "#a5f0e8");
 
-  rect(
-    -16,
-    -42,
-    4,
-    3,
-    "#f3d8bd"
-  );
+  // Left head, turned outwards with two horns, a magenta eye and visible fangs.
+  rect(-39, -48, 24, 19, "#160b20"); rect(-36, -46, 19, 15, "#321944");
+  rect(-43, -41, 17, 10, "#241033"); rect(-44, -39, 13, 6, "#49235d");
+  rect(-44, -34, 13, 3, "#100a19"); rect(-42, -34, 3, 4, "#f1d9e5"); rect(-36, -34, 3, 4, "#f1d9e5");
+  rect(-33, -44, 11, 4, "#170b20"); rect(-31, -43, 7, 3, "#ef59c9"); rect(-29, -43, 3, 2, "#fff0ff");
+  rect(-34, -53, 5, 10, "#160b20"); rect(-33, -58, 4, 7, "#a76ac1");
+  rect(-24, -54, 5, 11, "#160b20"); rect(-23, -59, 4, 7, "#80509b");
+  rect(-26, -38, 6, 3, "#8e5aad");
+  rect(-41, -45, 3, 2, "#61e8e5"); rect(-37, -31, 2, 2, "#f4cc7a");
+  rect(-30, -52, 2, 3, "#e95fc0");
 
-  rect(
-    11,
-    -42,
-    4,
-    3,
-    "#f3d8bd"
-  );
+  // Right head mirrors the anatomy and faces away, giving the emperor a true two-headed silhouette.
+  rect(15, -47, 24, 19, "#160b20"); rect(17, -45, 19, 15, "#321944");
+  rect(26, -41, 17, 10, "#241033"); rect(30, -39, 13, 6, "#49235d");
+  rect(30, -34, 13, 3, "#100a19"); rect(32, -34, 3, 4, "#f1d9e5"); rect(38, -34, 3, 4, "#f1d9e5");
+  rect(24, -43, 11, 4, "#170b20"); rect(26, -42, 7, 3, "#ef59c9"); rect(28, -42, 3, 2, "#fff0ff");
+  rect(19, -53, 5, 10, "#160b20"); rect(20, -58, 4, 7, "#a76ac1");
+  rect(29, -54, 5, 11, "#160b20"); rect(30, -59, 4, 7, "#80509b");
+  rect(25, -38, 6, 3, "#8e5aad");
+  rect(37, -45, 3, 2, "#61e8e5"); rect(40, -31, 2, 2, "#f4cc7a");
+  rect(24, -52, 2, 3, "#e95fc0");
 
-  rect(
-    -12,
-    -17,
-    24,
-    5,
-    "#252335"
-  );
+  // Dark emperor's crown rests between both skulls, rather than floating over one head.
+  rect(-8, -58, 16, 5, "#130a1b"); rect(-6, -61, 12, 4, "#6b4582");
+  rect(-6, -66, 3, 7, "#9c70b4"); rect(-1, -69, 3, 10, "#c294d4"); rect(4, -64, 3, 6, "#81519a");
+  rect(-3, -59, 6, 2, "#f1c56d"); rect(-1, -58, 3, 2, "#e95fc0");
+  ctx.restore();
 
-  rect(
-    -9,
-    -12,
-    4,
-    6,
-    "#ded5c8"
-  );
+  // Controlled, shifting void glints along the limbs and tail.
+  rect(-24, 13, 5, 2, "#a26cba"); rect(13, 15, 5, 2, "#8a56a2");
+  rect(39, -4, 4, 2, "#b985ce");
+  rect(-23, 25, 3, 2, "#66e7df"); rect(-3, 28, 3, 2, "#f0c974");
+  rect(16, 25, 3, 2, "#e96bc7"); rect(33, 4, 3, 2, "#73e7e8");
+  rect(48, -5, 3, 2, "#e9c16f");
+  // Four motes orbit the emperor in a slow, asymmetrical rhythm.
+  const motePulse = (Math.sin(t / 175) + 1) / 2;
+  ctx.globalAlpha = 0.48 + motePulse * 0.42;
+  rect(-48, -19, 3, 3, "#62e8e8"); rect(48, -26, 3, 3, "#f06dc8");
+  rect(-40, 10, 2, 2, "#f0ce78"); rect(42, 18, 2, 2, "#aaeff0");
+  ctx.restore();
+}
 
-  rect(
-    5,
-    -12,
-    4,
-    6,
-    "#ded5c8"
-  );
 
-  rect(
-    -25,
-    3,
-    50,
-    37,
-    "#514365"
-  );
+/* =========================================================
+   NEW STAGE BOSSES: CHIMERA / WORLD TREE TORTOISE / SNOW GODDESS
+   Bespoke pixel sprites with independent idle motions.
+   ========================================================= */
 
-  rect(
-    -19,
-    8,
-    38,
-    26,
-    "#6b5575"
-  );
+function drawChimera(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(scale, scale);
+  const t = time || 0;
+  const breath = Math.round(Math.sin(t / 250) * 1);
+  const tailWag = Math.round(Math.sin(t / 155) * 3);
+  const lionNod = Math.round(Math.sin(t / 205) * 1);
+  const goatNod = Math.round(Math.sin(t / 230 + .7) * 1);
+  const wingFlap = Math.round(Math.sin(t / 170) * 3);
+  const stepA = Math.round(Math.sin(t / 125) * 1);
+  const stepB = -stepA;
 
-  rect(
-    -5,
-    9,
-    10,
-    10,
-    "#c17b91"
-  );
+  // Heavy contact shadow keeps the chimera grounded.
+  rect(-52, 44, 112, 5, "#28301d");
+  rect(-40, 42, 86, 3, "#42482a");
 
-  rect(
-    -3,
-    7,
-    6,
-    14,
-    "#d29aad"
-  );
+  // Two broad, feathered wings sit behind the hybrid body. Their stepped
+  // feather rows rise and fall together, avoiding smooth vector-like edges.
+  // Far wing: dark silhouette, then separate blocky rows of ochre feathers.
+  rect(-30, -43 - wingFlap, 13, 9, "#261812");
+  rect(-38, -51 - wingFlap, 12, 11, "#261812");
+  rect(-33, -48 - wingFlap, 17, 20, "#4a291c");
+  rect(-27, -43 - wingFlap, 14, 16, "#754126");
+  rect(-36, -46 - wingFlap, 8, 13, "#9b5c2b");
+  rect(-30, -40 - wingFlap, 9, 13, "#bf7b35");
+  rect(-23, -34 - wingFlap, 9, 11, "#d59a42");
+  rect(-35, -34 - wingFlap, 7, 8, "#d59a42");
+  rect(-30, -30 - wingFlap, 7, 7, "#e6b65a");
+  rect(-26, -27 - wingFlap, 7, 6, "#b87432");
+  // Near wing opens over the rear flank with chunky feather tips.
+  rect(7, -42 + wingFlap, 12, 10, "#261812");
+  rect(15, -51 + wingFlap, 13, 12, "#261812");
+  rect(25, -49 + wingFlap, 12, 12, "#261812");
+  rect(33, -42 + wingFlap, 10, 10, "#261812");
+  rect(8, -39 + wingFlap, 31, 18, "#5a3020");
+  rect(14, -45 + wingFlap, 11, 12, "#a35f2b");
+  rect(24, -43 + wingFlap, 12, 12, "#bf7832");
+  rect(32, -37 + wingFlap, 8, 10, "#d2923b");
+  rect(12, -32 + wingFlap, 10, 10, "#d0923b");
+  rect(21, -30 + wingFlap, 10, 8, "#e1aa4c");
+  rect(29, -28 + wingFlap, 9, 7, "#a9632b");
+  // Dark pixel struts make each wing read as one membrane with feathered edges.
+  rect(-30, -40 - wingFlap, 3, 18, "#382018");
+  rect(-28, -33 - wingFlap, 15, 2, "#382018");
+  rect(12, -39 + wingFlap, 3, 16, "#382018");
+  rect(14, -32 + wingFlap, 22, 2, "#382018");
 
-  rect(
-    -29,
-    32,
-    11,
-    13,
-    "#302c42"
-  );
+  // Serpent tail is behind the body: one continuous, jointed S-curve.
+  ctx.save();
+  ctx.translate(0, tailWag);
+  rect(15, -3, 15, 11, "#241a15"); rect(25, -7, 14, 10, "#241a15");
+  rect(35, -13, 13, 10, "#241a15"); rect(43, -20, 13, 10, "#241a15");
+  rect(50, -26, 13, 10, "#241a15");
+  rect(17, -1, 12, 6, "#9a702e"); rect(27, -5, 11, 6, "#b68a3a");
+  rect(37, -11, 10, 6, "#5d8e3d"); rect(45, -18, 10, 6, "#6fa248");
+  rect(52, -24, 9, 6, "#7eaf50");
+  // Snake head, open mouth and eye.
+  rect(55, -31, 13, 8, "#26331d"); rect(59, -34, 8, 6, "#344b25");
+  rect(63, -29, 9, 5, "#4e702f"); rect(66, -26, 7, 3, "#1c2117");
+  rect(61, -29, 2, 2, "#f7d15f"); rect(62, -29, 1, 2, "#1b1711");
+  rect(67, -25, 2, 3, "#f2e6c7");
+  rect(55, -32, 4, 3, "#26331d");
+  ctx.restore();
 
-  rect(
-    18,
-    32,
-    11,
-    13,
-    "#302c42"
-  );
+  // Far-side legs first, with muscular joints and small ivory claws.
+  rect(12, 8, 10, 17, "#382319"); rect(13, 20, 10, 13, "#7b4d27");
+  rect(12 + stepB, 31, 13, 7, "#352015"); rect(15 + stepB, 34, 3, 3, "#e5c87d");
+  rect(-10, 7, 10, 17, "#382319"); rect(-9, 20, 9, 13, "#85572c");
+  rect(-11 + stepA, 31, 13, 7, "#352015"); rect(-8 + stepA, 34, 3, 3, "#e5c87d");
 
+  // Lion's broad body, with a stepped outline and layered tawny fur.
+  rect(-28, -11 + breath, 52, 29, "#241710");
+  rect(-24, -15 + breath, 44, 30, "#704221");
+  rect(-20, -13 + breath, 37, 24, "#a7652b");
+  rect(-14, -11 + breath, 27, 19, "#c18438");
+  rect(-8, -8 + breath, 18, 13, "#d59a46");
+  rect(-18, 4 + breath, 30, 5, "#8d5229");
+  rect(-22, -4 + breath, 7, 5, "#d49a45"); rect(3, -2 + breath, 8, 5, "#e0ad54");
+  rect(12, 2 + breath, 6, 5, "#8c5429"); rect(-5, 8 + breath, 9, 3, "#e8b85f");
+  // Back ridge and shoulder fur break the rectangular body silhouette.
+  rect(-17, -19 + breath, 12, 6, "#53301d"); rect(-8, -20 + breath, 13, 6, "#7d4a23");
+  rect(3, -16 + breath, 12, 5, "#a9672b"); rect(12, -12 + breath, 8, 5, "#c48538");
+
+  // Near-side legs, thicker at the shoulders and ending in paw-shaped feet.
+  rect(17, 7, 12, 18, "#2b1b14"); rect(18, 19, 12, 14, "#925b2b");
+  rect(14 + stepA, 30, 18, 9, "#2a1a13"); rect(19 + stepA, 33, 4, 3, "#f0d18a");
+  rect(-28, 5, 12, 19, "#2b1b14"); rect(-28, 18, 12, 15, "#a56a31");
+  rect(-33 + stepB, 30, 18, 9, "#2a1a13"); rect(-28 + stepB, 33, 4, 3, "#f0d18a");
+  rect(-24, 23, 6, 5, "#c9893b"); rect(20, 24, 6, 4, "#c9893b");
+
+  // Lion mane: a single dark, jagged silhouette with gold pixel locks.
+  ctx.save(); ctx.translate(0, lionNod);
+  rect(-48, -34, 27, 30, "#241610"); rect(-45, -39, 22, 31, "#5a3019");
+  rect(-41, -37, 22, 29, "#81461f"); rect(-36, -34, 20, 25, "#a96128");
+  rect(-47, -28, 8, 16, "#9a5725"); rect(-43, -21, 8, 12, "#bc7832");
+  rect(-38, -42, 8, 8, "#9b5727"); rect(-31, -39, 9, 8, "#c07b30");
+  rect(-27, -34, 8, 9, "#d0923b"); rect(-44, -12, 10, 7, "#6b3a1d");
+  rect(-36, -11, 9, 7, "#bf792e"); rect(-31, -18, 7, 8, "#d08b36");
+  rect(-39, -31, 9, 8, "#d29645"); rect(-32, -27, 6, 7, "#e2aa55");
+  // Ears and lion face, angled to the left.
+  rect(-43, -35, 9, 8, "#2b1913"); rect(-42, -33, 5, 5, "#b97a36");
+  rect(-30, -34, 8, 7, "#2b1913"); rect(-29, -32, 4, 4, "#c3863b");
+  rect(-49, -30, 21, 19, "#291814"); rect(-47, -28, 17, 16, "#c0833b");
+  rect(-52, -24, 11, 9, "#d5a35a"); rect(-51, -22, 9, 5, "#ead09a");
+  rect(-49, -30, 9, 5, "#4d2a19"); rect(-43, -27, 4, 3, "#f6ca4e");
+  rect(-42, -27, 2, 3, "#20150e"); rect(-53, -17, 15, 4, "#2a1215");
+  rect(-49, -15, 3, 4, "#fff0cc"); rect(-43, -15, 3, 4, "#fff0cc");
+  rect(-53, -24, 4, 3, "#211511");
+
+  // The goat neck rises distinctly from the back; curved horns use stair-step pixels.
+  rect(0, -23, 13, 12, "#34231b"); rect(2, -31, 11, 13, "#827354");
+  rect(4, -38, 13, 12, "#a99870"); rect(8, -35, 12, 10, "#d4c49b");
+  rect(16, -32, 10, 7, "#d9c99f"); rect(21, -30, 6, 4, "#f0e1b9");
+  rect(12, -36, 5, 4, "#d6c59a"); // ear
+  rect(3, -42, 6, 7, "#5e503a"); rect(5, -46, 4, 6, "#dfcca0");
+  // left curling horn
+  rect(3, -46, 4, 5, "#f0dcb0"); rect(0, -50, 5, 5, "#d6c39b");
+  rect(-2, -55, 5, 6, "#c5b187"); rect(-1, -58, 4, 5, "#f0e2bd");
+  rect(13, -43, 5, 7, "#5e503a"); rect(15, -48, 5, 7, "#d9c9a1");
+  rect(18, -53, 5, 6, "#c5b187"); rect(20, -56, 4, 5, "#f0e2bd");
+  rect(15, -34, 3, 3, "#d8b94b"); rect(16, -34, 1, 3, "#211a13");
+  rect(21, -28, 5, 3, "#39231b"); rect(23, -27, 3, 3, "#f7e8bd");
+  ctx.restore();
+
+  // Warm sparks and a few grass motes orbit the hybrid beast.
+  for (let i = 0; i < 5; i++) {
+    const phase = t / 230 + i * 1.31;
+    const px = Math.round(Math.sin(phase) * (34 + (i % 2) * 7));
+    const py = Math.round(-13 + Math.cos(phase * 1.3) * 21);
+    rect(px, py, 2 + (i % 2), 2, i % 2 ? "#efc35a" : "#89aa4c");
+  }
+  ctx.restore();
+}
+
+function drawWorldTreeTortoise(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(scale, scale);
+  const t = time || 0;
+  const footA = Math.round(Math.sin(t / 205) * 1);
+  const footB = -footA;
+  const sway = Math.round(Math.sin(t / 355) * 2);
+  const breathe = Math.round(Math.sin(t / 275) * 1);
+  const neckNod = Math.round(Math.sin(t / 225) * 1);
+  const vineSway = Math.round(Math.sin(t / 185) * 2);
+
+  rect(-47, 44, 96, 5, "#203c2b"); rect(-35, 42, 73, 3, "#35583c");
+
+  // Ancient tree grows from the shell; the trunk visibly roots into the carapace.
+  ctx.save(); ctx.translate(sway, breathe);
+  // Main trunk and heavy forked branches.
+  rect(-12, -43, 24, 31, "#273b2a"); rect(-9, -49, 18, 39, "#60452d");
+  rect(-6, -47, 6, 35, "#93683e"); rect(2, -42, 5, 27, "#4a6a3d");
+  rect(-9, -35, 16, 5, "#b08452"); rect(-6, -28, 13, 4, "#b08452");
+  rect(-7, -48, 7, 7, "#6f5033");
+  // Branches form a clear crown silhouette instead of a flat row of leaves.
+  rect(-22, -53, 12, 7, "#60452d"); rect(-28, -60, 13, 8, "#60452d");
+  rect(9, -53, 13, 7, "#60452d"); rect(18, -59, 12, 8, "#60452d");
+  // Extra forked boughs give the old tree a sprawling, many-branched crown.
+  rect(-34, -57, 14, 5, "#60452d"); rect(-41, -64, 12, 7, "#60452d");
+  rect(-39, -56, 10, 4, "#93683e"); rect(-44, -61, 7, 4, "#93683e");
+  rect(23, -56, 13, 5, "#60452d"); rect(31, -63, 11, 7, "#60452d");
+  rect(32, -56, 10, 4, "#93683e"); rect(38, -60, 7, 4, "#93683e");
+  // Outer canopy, built in broad joined pixel clusters.
+  rect(-22, -69, 19, 13, "#173b2a"); rect(-31, -62, 20, 13, "#173b2a");
+  rect(-28, -72, 20, 12, "#173b2a"); rect(-14, -77, 24, 13, "#173b2a");
+  rect(5, -74, 22, 13, "#173b2a"); rect(17, -66, 19, 13, "#173b2a");
+  rect(25, -58, 11, 10, "#173b2a"); rect(-23, -53, 18, 9, "#173b2a");
+  rect(-39, -60, 13, 10, "#173b2a"); rect(-36, -69, 13, 10, "#173b2a");
+  rect(29, -67, 14, 11, "#173b2a"); rect(37, -60, 10, 9, "#173b2a");
+  // Middle greens give the canopy volume without outlining every stair step.
+  rect(-25, -66, 16, 9, "#2f6940"); rect(-18, -72, 17, 8, "#367a44");
+  rect(-7, -74, 16, 8, "#438d4b"); rect(7, -70, 17, 9, "#317541");
+  rect(19, -63, 13, 9, "#2b613a"); rect(-29, -58, 12, 7, "#3c7f45");
+  rect(-11, -62, 16, 7, "#63a653"); rect(3, -64, 15, 8, "#59a04b");
+  rect(15, -57, 11, 6, "#438b42"); rect(-3, -55, 11, 5, "#2f6a3b");
+  // Sunlit leaf pixels and a tiny hanging vine.
+  rect(-14, -70, 5, 3, "#91c862"); rect(1, -68, 4, 3, "#b0d86c");
+  rect(21, -61, 4, 3, "#8cc75a"); rect(-28, -59, 4, 3, "#85bd55");
+  rect(-35, -63, 4, 3, "#91c862"); rect(34, -63, 4, 3, "#91c862");
+  rect(10, -52, 3, 6, "#6a9c45"); rect(12, -48, 3, 5, "#4f843c");
+  // Several continuous vines hang from separate boughs. Only the tips sway;
+  // their stepped leaf clusters stay attached to the hanging strands.
+  rect(-30 + vineSway, -55, 3, 10, "#214b31");
+  rect(-29 + vineSway, -46, 2, 12, "#376d37");
+  rect(-32 + vineSway, -42, 4, 3, "#548f40");
+  rect(-28 + vineSway, -36, 4, 3, "#79b84d");
+  rect(-27 + vineSway, -33, 2, 7, "#376d37");
+  rect(28 - vineSway, -54, 3, 11, "#214b31");
+  rect(29 - vineSway, -44, 2, 12, "#376d37");
+  rect(27 - vineSway, -40, 4, 3, "#548f40");
+  rect(29 - vineSway, -34, 4, 3, "#79b84d");
+  rect(30 - vineSway, -31, 2, 8, "#376d37");
+  rect(-7 + Math.round(vineSway / 2), -51, 2, 12, "#376d37");
+  rect(-9 + Math.round(vineSway / 2), -43, 4, 3, "#79b84d");
+  rect(-7 + Math.round(vineSway / 2), -39, 2, 7, "#376d37");
+  ctx.restore();
+
+  // Short tail behind the shell.
+  rect(29, 10, 9, 5, "#233d2b"); rect(35, 11, 8, 4, "#557e4a");
+
+  // Far legs sit behind the domed shell; toes have small ivory claws.
+  rect(13, 10, 14, 16, "#1c3929"); rect(15 + footA, 23, 14, 13, "#426a48");
+  rect(11 + footA, 33, 20, 8, "#203c2a"); rect(16 + footA, 34, 3, 3, "#b7c98c"); rect(22 + footA, 34, 3, 3, "#b7c98c");
+  rect(-24, 10, 14, 16, "#1c3929"); rect(-23 + footB, 23, 14, 13, "#426a48");
+  rect(-28 + footB, 33, 20, 8, "#203c2a"); rect(-23 + footB, 34, 3, 3, "#b7c98c"); rect(-17 + footB, 34, 3, 3, "#b7c98c");
+
+  // Large domed shell: one clear outer contour and inner scutes, not striped segments.
+  rect(-32, -8, 64, 27, "#172c22");
+  rect(-30, -17, 60, 25, "#172c22"); rect(-26, -24, 52, 12, "#172c22");
+  rect(-20, -29, 40, 9, "#172c22"); rect(-13, -32, 26, 6, "#172c22");
+  rect(-29, -9, 58, 24, "#315a3b"); rect(-25, -17, 50, 14, "#3e7448");
+  rect(-20, -23, 40, 10, "#4d8550"); rect(-13, -28, 26, 7, "#5b9254");
+  // Scutes are warm mossy markings inset into the shell's surface.
+  rect(-20, -15, 12, 8, "#75a65a"); rect(-5, -21, 13, 9, "#83b568");
+  rect(10, -14, 12, 8, "#6b9e50"); rect(-13, -4, 12, 8, "#5a8b49");
+  rect(2, -3, 13, 8, "#6a9a4c"); rect(-27, 4, 13, 7, "#4c7d40");
+  rect(17, 2, 10, 7, "#4a783d");
+  // Old gold rim follows the dome as one continuous edge.
+  rect(-29, 11, 58, 4, "#937044"); rect(-25, 14, 50, 3, "#b28a4e");
+  rect(-22, 16, 44, 2, "#243c29");
+
+  // Long, expressive tortoise neck extends well beyond the shell, with
+  // segmented mossy scales and a broad, ancient beak-like head.
+  rect(-40, -7 + neckNod, 13, 13, "#1b3527");
+  rect(-48, -6 + neckNod, 12, 12, "#254c33");
+  rect(-56, -5 + neckNod, 13, 12, "#325f3b");
+  rect(-63, -3 + neckNod, 12, 10, "#4c8049");
+  rect(-69, -4 + neckNod, 12, 10, "#1b3527");
+  rect(-68, -3 + neckNod, 9, 7, "#6d9e5b");
+  rect(-65, -2 + neckNod, 5, 3, "#d9e79a"); rect(-64, -2 + neckNod, 2, 3, "#263522");
+  rect(-72, 2 + neckNod, 8, 4, "#243d2b"); // hooked beak
+  rect(-55, -5 + neckNod, 6, 4, "#75a65a");
+  rect(-48, -4 + neckNod, 5, 4, "#5b8b4d");
+  rect(-42, -3 + neckNod, 5, 4, "#6fa05a");
+
+  // Near front feet overlap the shell rim and show thick toes.
+  rect(-25, 9, 13, 11, "#1c3929"); rect(-27 + footA, 18, 15, 16, "#4d794c");
+  rect(-31 + footA, 31, 22, 9, "#1a3525");
+  rect(-26 + footA, 33, 3, 4, "#c3d69a"); rect(-20 + footA, 33, 3, 4, "#c3d69a"); rect(-14 + footA, 33, 3, 4, "#c3d69a");
+  rect(4, 9, 13, 11, "#1c3929"); rect(4 + footB, 18, 15, 16, "#4d794c");
+  rect(1 + footB, 31, 22, 9, "#1a3525");
+  rect(5 + footB, 33, 3, 4, "#c3d69a"); rect(11 + footB, 33, 3, 4, "#c3d69a"); rect(17 + footB, 33, 3, 4, "#c3d69a");
+
+  // A few leaves drift past the canopy; motion stays separate from the grounded body.
+  for (let i = 0; i < 5; i++) {
+    const phase = t / 270 + i * 1.22;
+    const px = Math.round(Math.sin(phase) * (25 + (i % 3) * 8));
+    const py = Math.round(-39 + Math.cos(phase * 1.13) * 25);
+    rect(px, py, 2 + (i % 2), 2, i % 2 ? "#c8df82" : "#81bc69");
+  }
+  ctx.restore();
+}
+
+function drawSnowGoddess(x, y, scale, time = 0) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y));
+  ctx.scale(scale, scale);
+  const t = time || 0;
+  const breath = Math.round(Math.sin(t / 270) * 1);
+  const armSway = Math.round(Math.sin(t / 205) * 1);
+  const hairSway = Math.round(Math.sin(t / 245) * 2);
+  const skirtSway = Math.round(Math.sin(t / 315) * 1);
+  const hairTip = Math.round(Math.sin(t / 185 + .7) * 2);
+  const crystalPulse = Math.round((Math.sin(t / 160) + 1) * 1);
+
+  // Full-height, slender silhouette: crown to heels is about eight head units.
+  // The exposed upper shoulders, fitted bodice and high slit keep the design
+  // elegant and mature while remaining fully clothed and readable in pixels.
+  rect(-32, 44, 64, 4, "#537f9e"); rect(-21, 42, 42, 2, "#a8ddeb");
+
+  // Tall stepped ice spires behind the goddess, not attached to her silhouette.
+  rect(-35, -38, 5, 27, "#24456d"); rect(-33, -46, 4, 11, "#5ba9d2");
+  rect(-31, -41, 3, 23, "#a1e5f5"); rect(-28, -31, 4, 17, "#defbff");
+  rect(30, -36, 5, 25, "#24456d"); rect(32, -48, 4, 15, "#5ba9d2");
+  rect(28, -42, 3, 23, "#a1e5f5"); rect(24, -30, 4, 17, "#defbff");
+
+  // Long silver hair, shaped into a crisp pixel silhouette around the torso.
+  ctx.save(); ctx.translate(hairSway, 0);
+  rect(-10, -73, 20, 19, "#203e6a"); rect(-9, -75, 18, 18, "#86bddc");
+  rect(-7, -73, 14, 16, "#d7f4fa"); rect(-5, -71, 10, 13, "#f8ffff");
+  // Short face-framing locks.
+  rect(-11, -65, 4, 16, "#6ca6ce"); rect(-10, -57, 4, 12, "#cceef8");
+  rect(7, -65, 4, 16, "#6ca6ce"); rect(6, -57, 4, 12, "#cceef8");
+  // Back locks trail to the hips with two independent pixel tips.
+  rect(-9, -54, 4, 17, "#a9d9ed"); rect(-8, -39, 4, 10, "#5e9bc4");
+  rect(6, -54, 4, 18, "#a9d9ed"); rect(5, -38, 4, 10, "#5e9bc4");
+  rect(-8 + hairTip, -31, 4, 7, "#c9edf6"); rect(6 - hairTip, -30, 4, 7, "#c9edf6");
+  ctx.restore();
+
+  // Ice crown sits close to the head; a tall central crystal forms its peak.
+  rect(-9, -76, 18, 4, "#25496f"); rect(-8, -78, 16, 3, "#8acde9");
+  rect(-7, -81, 3, 5, "#9fe7f8"); rect(-2, -84, 4, 8, "#f7ffff");
+  rect(4, -80, 3, 5, "#8bd3ed"); rect(7, -77, 3, 3, "#d6f7ff");
+  rect(-2, -77, 4, 3, "#357eb1"); rect(-1, -77, 2, 2, "#ffffff");
+
+  // Small refined face with a visibly tapered, sharp pixel-art chin.
+  rect(-7, -72, 14, 11, "#203e6a");
+  rect(-6, -70, 12, 8, "#f0d9d1");
+  rect(-5, -63, 10, 4, "#f0d9d1");
+  rect(-4, -59, 8, 3, "#ffe9df");
+  rect(-3, -56, 6, 2, "#f0d9d1");
+  rect(-6, -66, 2, 5, "#d7b7bf"); rect(4, -66, 2, 5, "#d7b7bf");
+  // Snow-blue eyes, fine lashes and a tiny rose lip on the tapered lower face.
+  rect(-5, -64, 4, 2, "#284e84"); rect(1, -64, 4, 2, "#284e84");
+  rect(-4, -64, 1, 2, "#f4ffff"); rect(2, -64, 1, 2, "#f4ffff");
+  rect(-5, -66, 4, 1, "#5d9ab7"); rect(1, -66, 4, 1, "#5d9ab7");
+  rect(-1, -59, 3, 1, "#d7a6ae"); rect(-1, -57, 3, 1, "#b96782");
+  // Narrow neck transitions directly to an elegant off-shoulder collar.
+  rect(-3, -55, 6, 5, "#f0d9d1"); rect(-7, -52, 14, 3, "#d8b9bf");
+
+  // Rear mantle and arms: long, slim lines, no chunky floating sleeves.
+  rect(-14, -49 + breath, 28, 8, "#203e6a");
+  rect(-17, -46 + breath, 34, 7, "#6faed1");
+  rect(-13, -45 + breath, 26, 5, "#d5f3fa");
+  // Arms reach down from their shoulders, with subtle ice-blue bracers.
+  rect(-15, -47 + armSway, 4, 13, "#294e7a");
+  rect(-17, -37 + armSway, 4, 11, "#f0d9d1");
+  rect(-17, -29 + armSway, 4, 7, "#cceef8"); rect(-16, -29 + armSway, 2, 4, "#fffaff");
+  rect(11, -47 - armSway, 4, 13, "#294e7a");
+  rect(13, -37 - armSway, 4, 11, "#f0d9d1");
+  rect(13, -29 - armSway, 4, 7, "#cceef8"); rect(14, -29 - armSway, 2, 4, "#fffaff");
+
+  // Fitted, hourglass-shaped bodice with a jeweled waist.
+  rect(-10, -50 + breath, 20, 20, "#203e6a");
+  rect(-8, -49 + breath, 16, 7, "#e6f8fb"); // bare neckline/ice trim
+  rect(-8, -42 + breath, 16, 8, "#79b9d9");
+  rect(-5, -41 + breath, 10, 8, "#dff8ff");
+  rect(-7, -34 + breath, 14, 7, "#244b79");
+  rect(-5, -33 + breath, 10, 5, "#6fb1d5");
+  rect(-2, -32 + breath, 4, 4, "#eaffff"); // waist jewel
+  rect(-9, -29 + breath, 18, 5, "#1b365f");
+
+  // Long legs are drawn first so the high slit can reveal one clean leg shape.
+  // Tall blue-white boots reach almost to the knees, keeping the look regal.
+  rect(-7, -25, 6, 62, "#1b365f"); rect(-6, -23, 4, 58, "#d8b8bb");
+  rect(-5, -20, 2, 32, "#ffe8dc");
+  rect(2, -25, 6, 62, "#1b365f"); rect(3, -23, 4, 58, "#e8c9c8");
+  rect(4, -20, 2, 33, "#fff0e7");
+  rect(-7, 13, 6, 27, "#213f6a"); rect(-6, 15, 4, 23, "#6ba9d1");
+  rect(2, 13, 6, 27, "#213f6a"); rect(3, 15, 4, 23, "#6ba9d1");
+  rect(-9, 36, 9, 5, "#162e50"); rect(1, 36, 9, 5, "#162e50");
+  rect(-8, 36, 6, 2, "#d7f2fa"); rect(2, 36, 6, 2, "#d7f2fa");
+
+  // Floor-length gown in one connected silhouette, split by a deliberate
+  // high slit on the right. Step-shaped panels preserve the pixel-art look.
+  rect(-12 + skirtSway, -28, 24, 9, "#1b365f");
+  rect(-14 + skirtSway, -21, 28, 10, "#244b79");
+  rect(-16 + skirtSway, -12, 18, 13, "#254c7d");
+  rect(4 + skirtSway, -12, 13, 13, "#254c7d");
+  rect(-19 + skirtSway, 0, 19, 16, "#1e416e");
+  rect(5 + skirtSway, 0, 15, 16, "#1e416e");
+  rect(-21 + skirtSway, 15, 21, 17, "#203e6a");
+  rect(5 + skirtSway, 15, 17, 17, "#203e6a");
+  rect(-23 + skirtSway, 31, 23, 10, "#18345a");
+  rect(5 + skirtSway, 31, 19, 10, "#18345a");
+  // Pixel folds follow the taper and flare instead of forming straight bars.
+  rect(-10 + skirtSway, -19, 4, 13, "#8acde9");
+  rect(-7 + skirtSway, -9, 3, 14, "#dff8ff");
+  rect(-15 + skirtSway, 2, 4, 12, "#5b9cc4");
+  rect(-12 + skirtSway, 12, 4, 14, "#91d2e8");
+  rect(-17 + skirtSway, 25, 5, 12, "#4d88b8");
+  rect(-7 + skirtSway, 28, 3, 10, "#a8e4f2");
+  rect(8 + skirtSway, -8, 3, 12, "#71b6d7");
+  rect(10 + skirtSway, 2, 3, 14, "#dff8ff");
+  rect(13 + skirtSway, 18, 3, 14, "#77b4d5");
+  rect(7 + skirtSway, 31, 4, 7, "#a7deed");
+  // Crystal hip chain and side drape add refined detail to the silhouette.
+  rect(-12 + skirtSway, -24, 7, 2, "#8bd9ef"); rect(5 + skirtSway, -24, 7, 2, "#8bd9ef");
+  rect(-1 + skirtSway, -25, 3, 4, "#f6ffff");
+
+  // Floating ice shards orbit in a slow independent loop.
+  for (let i = 0; i < 8; i++) {
+    const phase = t / 310 + i * (Math.PI / 4);
+    const px = Math.round(Math.cos(phase) * (36 + (i % 2) * 5));
+    const py = Math.round(-18 + Math.sin(phase * 1.45) * 31);
+    const c = i % 3 === 0 ? "#ffffff" : (i % 3 === 1 ? "#9be8ff" : "#5ea6d2");
+    rect(px, py, i % 2 ? 3 : 2, 2, c);
+    if (i % 3 === 0) { rect(px - 2, py + 1, 6, 1, c); rect(px, py - 2, 2, 6, c); }
+  }
+  rect(-20, -34 + armSway, 3 + crystalPulse, 3, "#f5ffff");
+  rect(18, -34 - armSway, 3 + crystalPulse, 3, "#8fe8ff");
   ctx.restore();
 }
 
@@ -6675,6 +8008,10 @@ document.addEventListener(
     createExtraScreens();
     createExtraNavigation();
 
+    // ゲームを開いた日をログイン日として記録。日をまたいでの起動で連続ボーナスを判定する。
+    markTodayPlayed();
+    updateRecoveryButton();
+
     /* navigation */
 
     document
@@ -6742,6 +8079,10 @@ document.addEventListener(
     }
 
     /* quest */
+
+    if ($("#useRecoveryElixirBtn")) {
+      $("#useRecoveryElixirBtn").addEventListener("click", useRecoveryElixir);
+    }
 
     if ($("#startQuestBtn")) {
       $("#startQuestBtn")
