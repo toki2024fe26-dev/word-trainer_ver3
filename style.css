@@ -1630,3 +1630,1021 @@ input:focus {
   .recovery-item-row { justify-content: stretch; }
   .recovery-elixir-btn { width: 100%; align-items: center; }
 }
+
+
+/* =========================================================
+   IMMERSIVE FULLSCREEN 2D BATTLE — v50
+   Full-viewport pixel-art battlefield; glass command HUD.
+   ========================================================= */
+body.battle-active {
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #101426;
+}
+body.battle-active .site-header { display: none !important; }
+body.battle-active main {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body.battle-active #quizScreen {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #15192b;
+}
+body.battle-active .quiz-top {
+  position: absolute;
+  z-index: 40;
+  top: max(8px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 30px;
+  margin: 0;
+  pointer-events: none;
+}
+body.battle-active .quiz-top > * { pointer-events: auto; }
+body.battle-active .quiz-top .back-btn {
+  padding: 6px 10px;
+  color: rgba(255,255,255,.96);
+  background: rgba(21, 28, 47, .32);
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: 10px;
+  font-family: monospace;
+  font-size: 10px;
+  text-shadow: 0 1px 3px #101426;
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 4px 18px rgba(0,0,0,.10);
+}
+body.battle-active .question-progress {
+  color: rgba(255,255,255,.97);
+  padding: 5px 10px;
+  gap: 8px;
+  background: rgba(21,28,47,.30);
+  border: 1px solid rgba(255,255,255,.32);
+  border-radius: 11px;
+  text-shadow: 0 1px 3px #101426;
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 4px 18px rgba(0,0,0,.1);
+}
+body.battle-active .question-progress .progress-track {
+  width: clamp(64px, 12vw, 150px);
+  height: 5px;
+  background: rgba(255,255,255,.25);
+  border-radius: 99px;
+}
+body.battle-active .question-progress .progress-fill {
+  background: linear-gradient(90deg, #ffe28a, #ff9dcc, #8ce5ff);
+  border-radius: 99px;
+}
+body.battle-active .battle-card {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+body.battle-active .battle-window {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  max-width: none;
+  aspect-ratio: auto;
+  margin: 0;
+  overflow: hidden;
+  background: #92c9d9;
+  border: 0;
+  box-shadow: none;
+  isolation: isolate;
+}
+body.battle-active .battle-window #battleCanvas {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: fill;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+body.battle-active .battle-window::after { opacity: .26; }
+body.battle-active .battle-window::before { opacity: .27; }
+body.battle-active .battle-header {
+  position: absolute;
+  z-index: 25;
+  top: max(45px, calc(env(safe-area-inset-top) + 38px));
+  left: max(14px, env(safe-area-inset-left));
+  right: max(14px, env(safe-area-inset-right));
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+  pointer-events: none;
+}
+body.battle-active .battle-title-block { min-width: 0; }
+body.battle-active .stage-badge {
+  padding: 4px 8px;
+  color: #fff9e9;
+  background: rgba(25,31,50,.34);
+  border: 1px solid rgba(255,255,255,.34);
+  border-radius: 9px;
+  font-size: 9px;
+  text-shadow: 0 1px 4px rgba(11,16,32,.85);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+}
+body.battle-active .battle-header h2 {
+  max-width: 60vw;
+  margin: 5px 0 0;
+  color: #fff;
+  font-size: clamp(14px, 1.9vw, 22px);
+  line-height: 1.1;
+  letter-spacing: .04em;
+  text-shadow: 0 2px 0 #28213f, 0 0 10px rgba(13,18,39,.78);
+}
+body.battle-active .battle-timer {
+  min-width: 66px;
+  padding: 7px 11px !important;
+  background: rgba(20,25,43,.34) !important;
+  border: 1px solid rgba(255,255,255,.34) !important;
+  border-radius: 12px;
+  color: #fff;
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 4px 18px rgba(0,0,0,.12);
+}
+body.battle-active .battle-timer-label { color: rgba(237,239,255,.88); font-size: 8px; }
+body.battle-active .battle-timer strong {
+  color: #fff9e0;
+  font-size: clamp(15px, 2vw, 21px);
+  text-shadow: 0 1px 0 #312542;
+}
+
+/* Character-attached HP HUD: lower on screen and closer to the side edges. */
+body.battle-active .combat-hp {
+  top: 58%;
+  width: clamp(104px, 13.2vw, 176px);
+  text-shadow: 0 1px 4px rgba(12,18,34,.92);
+}
+body.battle-active .player-combat-hp { left: 13.5%; }
+body.battle-active .enemy-combat-hp { left: 86.5%; }
+body.battle-active .combat-hp > span {
+  font-size: clamp(8px, .9vw, 11px);
+  color: rgba(255,255,255,.98);
+}
+body.battle-active .combat-hp .hp-track {
+  height: 9px;
+  border-radius: 99px;
+  padding: 1px;
+  background: rgba(12,16,30,.58);
+  border: 1px solid rgba(255,255,255,.44);
+  box-shadow: 0 2px 7px rgba(0,0,0,.18), inset 0 1px 2px rgba(0,0,0,.24);
+}
+body.battle-active .combat-hp .hp-fill { border-radius: 99px; }
+body.battle-active .combat-hp small { font-size: 9px; color: #fff; }
+
+/* iOS-inspired glassmorphism command menu */
+body.battle-active .command-panel {
+  position: absolute;
+  z-index: 30;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(8px, env(safe-area-inset-bottom));
+  height: clamp(154px, 31vh, 286px);
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(142px, .62fr) minmax(0, 1.38fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 7px 12px;
+  padding: 10px 13px;
+  overflow: hidden;
+  color: #f9f8ff;
+  background:
+    linear-gradient(135deg, rgba(231,242,255,.20), rgba(202,213,255,.08) 44%, rgba(255,223,246,.12)),
+    rgba(21,27,48,.42);
+  border: 1px solid rgba(255,255,255,.43);
+  border-top: 1px solid rgba(255,255,255,.72);
+  border-radius: 20px;
+  box-shadow: 0 12px 38px rgba(6,10,27,.24), inset 0 1px 0 rgba(255,255,255,.34), inset 0 0 0 1px rgba(142,199,255,.10);
+  backdrop-filter: blur(18px) saturate(165%);
+  -webkit-backdrop-filter: blur(18px) saturate(165%);
+}
+body.battle-active .command-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(115deg, rgba(255,255,255,.13), transparent 34%, transparent 68%, rgba(173,215,255,.08));
+}
+body.battle-active .command-panel > * { position: relative; z-index: 1; }
+body.battle-active .battle-message {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0 2px 5px;
+  color: #fff3c2;
+  background: transparent;
+  border-left: 0;
+  border-bottom: 1px solid rgba(255,255,255,.22);
+  font-size: 9px;
+  line-height: 1.15;
+  letter-spacing: .08em;
+  text-shadow: 0 1px 4px rgba(16,20,40,.65);
+}
+body.battle-active .question-box {
+  position: relative;
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 7px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  text-align: left;
+  background: rgba(245,249,255,.18);
+  border: 1px solid rgba(255,255,255,.38);
+  border-left: 3px solid rgba(213,157,221,.88);
+  border-radius: 13px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16);
+  backdrop-filter: blur(9px) saturate(145%);
+  -webkit-backdrop-filter: blur(9px) saturate(145%);
+}
+body.battle-active .question-label {
+  color: rgba(236,239,255,.78);
+  font-family: monospace;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+body.battle-active .question-word {
+  margin-top: 4px;
+  color: #fff;
+  font-size: clamp(20px, 3.2vw, 36px);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+  text-shadow: 0 2px 10px rgba(0,0,0,.28);
+}
+body.battle-active .answers-grid {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+body.battle-active .answer-btn {
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 5px 9px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.48);
+  border-bottom-width: 1px;
+  background: linear-gradient(135deg, rgba(255,255,255,.30), rgba(235,242,255,.13));
+  color: #fff;
+  font-size: clamp(11px, 1.25vw, 15px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  text-shadow: 0 1px 3px rgba(12,18,38,.45);
+  box-shadow: 0 3px 10px rgba(4,9,25,.10), inset 0 1px 0 rgba(255,255,255,.25);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+}
+body.battle-active .answer-btn:hover { background: linear-gradient(135deg, rgba(255,247,210,.44), rgba(255,222,246,.25)); }
+body.battle-active .answer-btn.correct { background: linear-gradient(135deg, rgba(125,231,177,.74), rgba(72,177,145,.55)); border-color: rgba(213,255,232,.85); color: #fff; }
+body.battle-active .answer-btn.wrong { background: linear-gradient(135deg, rgba(255,136,159,.78), rgba(197,70,111,.58)); border-color: rgba(255,221,231,.85); color: #fff; }
+body.battle-active .recovery-item-row {
+  grid-column: 1;
+  grid-row: 3;
+  min-width: 0;
+  margin: 0;
+  justify-content: flex-start;
+  align-items: center;
+}
+body.battle-active .recovery-elixir-btn {
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 8px;
+  gap: 2px;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(177,146,255,.40), rgba(132,100,192,.26));
+  border: 1px solid rgba(231,213,255,.62);
+  border-radius: 11px;
+  font-size: 9px;
+  line-height: 1.05;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 3px 10px rgba(10,8,28,.1);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+body.battle-active .recovery-elixir-btn small { color: rgba(246,239,255,.84); font-size: 8px; line-height: 1.1; }
+body.battle-active .recovery-elixir-btn.can-use { color: #fff; background: linear-gradient(135deg, rgba(191,151,255,.68), rgba(127,91,198,.58)); }
+body.battle-active .recovery-elixir-btn:disabled { opacity: .68; }
+body.battle-active .battle-footer {
+  grid-column: 2;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: clamp(12px, 2.5vw, 30px);
+  margin: 0;
+  color: rgba(246,245,255,.82);
+  font-size: 10px;
+  text-shadow: 0 1px 4px rgba(0,0,0,.32);
+}
+body.battle-active .battle-footer b { color: #fff; font-size: 12px; }
+body.battle-active .question-weak-action {
+  position: absolute;
+  right: 7px;
+  bottom: 6px;
+  max-width: 92px;
+  padding: 3px 5px;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 7px;
+  background: rgba(28,35,58,.35);
+  color: rgba(255,255,255,.8);
+  font-size: 8px;
+}
+
+/* Portrait phones: pause the question timer and show the rotate prompt. */
+.landscape-prompt { display: none; }
+body.battle-needs-landscape .landscape-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(22px, env(safe-area-inset-top)) 24px max(22px, env(safe-area-inset-bottom));
+  box-sizing: border-box;
+  background: radial-gradient(ellipse at 50% 20%, #34335d 0, #1a1c35 54%, #101322 100%);
+  color: #fff;
+  text-align: center;
+}
+.landscape-prompt-card { width: min(420px, 100%); }
+.rotate-phone-wrap { position: relative; width: 112px; height: 78px; margin: 0 auto 14px; }
+.rotate-phone { position: absolute; left: 23px; top: 9px; width: 60px; height: 40px; box-sizing: border-box; border: 3px solid #eaf6ff; border-radius: 8px; box-shadow: 0 0 0 4px rgba(131,195,255,.12), 0 0 24px rgba(103,187,255,.2); transform: rotate(-90deg); }
+.rotate-phone::before { content: ""; position: absolute; right: 4px; top: 50%; width: 3px; height: 12px; background: #86d6ff; border-radius: 3px; transform: translateY(-50%); }
+.rotate-phone span { position:absolute; top:3px; bottom:3px; left:3px; width:2px; background:#9b8ad9; }
+.rotate-arrow { position: absolute; right: 2px; top: 15px; color: #f5d782; font-size: 36px; line-height: 1; transform: rotate(-28deg); text-shadow: 0 0 15px rgba(245,215,130,.5); }
+.landscape-kicker { margin:0 0 9px; color:#8bdcff; font-family:monospace; font-size:10px; font-weight:800; letter-spacing:.2em; }
+.landscape-prompt h2 { margin:0; font-size:clamp(22px,6vw,30px); line-height:1.55; letter-spacing:.03em; }
+.landscape-description { max-width:320px; margin:12px auto 0; color:#c5c6df; font-size:13px; line-height:1.8; }
+
+@media (max-width: 760px) and (orientation: landscape) {
+  body.battle-active .quiz-top { top: max(5px, env(safe-area-inset-top)); height: 26px; }
+  body.battle-active .quiz-top .back-btn { padding: 4px 7px; font-size: 9px; }
+  body.battle-active .question-progress { padding: 3px 6px; font-size: 9px; }
+  body.battle-active .battle-header { top: max(36px, calc(env(safe-area-inset-top) + 30px)); }
+  body.battle-active .stage-badge { padding: 3px 5px; font-size: 8px; }
+  body.battle-active .battle-header h2 { margin-top: 3px; font-size: 13px; }
+  body.battle-active .battle-timer { min-width: 54px; padding: 4px 7px !important; }
+  body.battle-active .battle-timer strong { font-size: 14px; }
+  body.battle-active .combat-hp { top: 49%; width: clamp(96px, 14vw, 140px); }
+  body.battle-active .player-combat-hp { left: 11.5%; }
+  body.battle-active .enemy-combat-hp { left: 88.5%; }
+  body.battle-active .combat-hp > span { font-size: 8px; }
+  body.battle-active .command-panel {
+    left: max(7px, env(safe-area-inset-left));
+    right: max(7px, env(safe-area-inset-right));
+    bottom: max(5px, env(safe-area-inset-bottom));
+    height: clamp(148px, 42vh, 200px);
+    grid-template-columns: minmax(125px, .58fr) minmax(0, 1.42fr);
+    gap: 5px 8px;
+    padding: 7px 9px;
+    border-radius: 16px;
+  }
+  body.battle-active .battle-message { padding-bottom: 3px; font-size: 8px; }
+  body.battle-active .question-box { padding: 4px 6px; border-radius: 10px; }
+  body.battle-active .question-word { font-size: clamp(18px, 3.3vw, 27px); }
+  body.battle-active .answers-grid { gap: 4px; }
+  body.battle-active .answer-btn { padding: 3px 6px; font-size: 11px; border-radius: 9px; }
+  body.battle-active .recovery-elixir-btn { padding: 4px 6px; font-size: 8px; border-radius: 8px; }
+  body.battle-active .recovery-elixir-btn small { font-size: 7px; }
+  body.battle-active .battle-footer { gap: 9px; font-size: 8px; }
+  body.battle-active .battle-footer b { font-size: 10px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  body.battle-active .command-panel {
+    height: clamp(148px, 42vh, 200px);
+    grid-template-columns: minmax(125px, .58fr) minmax(0, 1.42fr);
+    gap: 5px 8px;
+    padding: 7px 9px;
+  }
+  body.battle-active .combat-hp { top: 47%; width: clamp(96px, 14vw, 140px); }
+  body.battle-active .player-combat-hp { left: 11.5%; }
+  body.battle-active .enemy-combat-hp { left: 88.5%; }
+  body.battle-active .answer-btn { font-size: clamp(10px, 1.5vw, 12px); }
+}
+@media (max-height: 360px) and (orientation: landscape) {
+  body.battle-active .command-panel { height: 142px; }
+  body.battle-active .combat-hp { top: 44%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.battle-active .command-panel { backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* v51 — lighter, more transparent iOS-style glass command HUD */
+body.battle-active .command-panel {
+  background:
+    linear-gradient(135deg,
+      rgba(231,242,255,.09),
+      rgba(202,213,255,.035) 44%,
+      rgba(255,223,246,.055)),
+    rgba(14,20,39,.22);
+  border-color: rgba(255,255,255,.34);
+  border-top-color: rgba(255,255,255,.62);
+  box-shadow:
+    0 12px 38px rgba(6,10,27,.15),
+    inset 0 1px 0 rgba(255,255,255,.24),
+    inset 0 0 0 1px rgba(142,199,255,.07);
+  backdrop-filter: blur(22px) saturate(175%);
+  -webkit-backdrop-filter: blur(22px) saturate(175%);
+}
+body.battle-active .command-panel::before {
+  background: linear-gradient(115deg,
+    rgba(255,255,255,.075), transparent 34%,
+    transparent 68%, rgba(173,215,255,.045));
+}
+body.battle-active .battle-message {
+  border-bottom-color: rgba(255,255,255,.16);
+}
+body.battle-active .question-box {
+  background: rgba(245,249,255,.085);
+  border-color: rgba(255,255,255,.29);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter: blur(12px) saturate(155%);
+  -webkit-backdrop-filter: blur(12px) saturate(155%);
+}
+body.battle-active .answer-btn {
+  background: linear-gradient(135deg,
+    rgba(255,255,255,.16),
+    rgba(235,242,255,.065));
+  border-color: rgba(255,255,255,.38);
+  box-shadow: 0 3px 10px rgba(4,9,25,.07), inset 0 1px 0 rgba(255,255,255,.18);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+body.battle-active .answer-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(255,247,210,.30), rgba(255,222,246,.13));
+}
+body.battle-active .recovery-elixir-btn {
+  background: linear-gradient(135deg,
+    rgba(177,146,255,.25), rgba(132,100,192,.14));
+  border-color: rgba(231,213,255,.46);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 3px 10px rgba(10,8,28,.07);
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+body.battle-active .recovery-elixir-btn.can-use {
+  background: linear-gradient(135deg,
+    rgba(191,151,255,.42), rgba(127,91,198,.29));
+}
+
+
+/* v52 — keep the battlefield art at its native 16:9 ratio.
+   The glass command HUD remains full-width; only the scene art is contained. */
+.battle-visual-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: transparent;
+}
+.battle-visual-frame > #battleCanvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.battle-visual-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+  opacity: .22;
+}
+.battle-visual-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.035), transparent 46%, rgba(165,205,255,.025));
+  mix-blend-mode: screen;
+}
+body.battle-active .battle-visual-frame {
+  position: absolute;
+  z-index: 3;
+  left: 50%;
+  top: 0;
+  /* Keep the 16:9 battlefield anchored to the top while resizing. */
+  transform: translateX(-50%);
+  width: min(100%, calc(100vh * 16 / 9));
+  height: min(100%, calc(100vw * 9 / 16));
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: transparent;
+}
+body.battle-active .battle-window .battle-visual-frame > #battleCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+@supports (height: 100dvh) {
+  body.battle-active .battle-visual-frame {
+    width: min(100%, calc(100dvh * 16 / 9));
+    height: min(100%, calc(100vw * 9 / 16));
+  }
+}
+/* HP and time-bonus overlays now follow the contained 16:9 scene, not the full viewport. */
+body.battle-active .battle-visual-frame .combat-hp { z-index: 8; }
+body.battle-active .battle-visual-frame .time-bonus-overlay { z-index: 20; }
+
+/* v55 — stage scenery fills responsive margins while the 16:9 foreground stays undistorted. */
+.battle-background-extension { display: none; }
+body.battle-active .battle-window {
+  background: linear-gradient(180deg,
+    var(--battle-margin-sky, #91c2d4) 0%,
+    var(--battle-margin-mid, #7fa65f) 54%,
+    var(--battle-margin-ground, #4f713f) 100%);
+}
+body.battle-active .battle-window > .battle-background-extension {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+
+/* v56 — reduce glass blur so the battlefield remains clearly visible. */
+body.battle-active .command-panel {
+  backdrop-filter: blur(4px) saturate(155%);
+  -webkit-backdrop-filter: blur(4px) saturate(155%);
+}
+body.battle-active .question-box {
+  backdrop-filter: blur(2px) saturate(135%);
+  -webkit-backdrop-filter: blur(2px) saturate(135%);
+}
+body.battle-active .answer-btn {
+  backdrop-filter: blur(2px) saturate(140%);
+  -webkit-backdrop-filter: blur(2px) saturate(140%);
+}
+body.battle-active .recovery-elixir-btn {
+  backdrop-filter: blur(3px) saturate(145%);
+  -webkit-backdrop-filter: blur(3px) saturate(145%);
+}
+body.battle-active .quiz-top .back-btn,
+body.battle-active .question-progress,
+body.battle-active .stage-badge,
+body.battle-active .battle-timer {
+  backdrop-filter: blur(4px) saturate(140%);
+  -webkit-backdrop-filter: blur(4px) saturate(140%);
+}
+
+/* v58 — cover the hairline where the 16:9 battlefield meets responsive scenery.
+   The overlay itself is transparent apart from a few pixels copied from the
+   scene edge; no border is drawn and the canvas is not stretched. */
+body.battle-active .battle-window > .battle-background-seam-cover {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  image-rendering: pixelated;
+}
+.battle-background-seam-cover { display: none; }
+
+
+/* v59 — answer-resolution choreography. Correct: clear the command glass
+   while the player strikes. Wrong: fade every distractor and leave the answer
+   visible while the enemy counterattacks. */
+body.battle-active .command-panel {
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 0s;
+  will-change: opacity, transform;
+}
+body.battle-active.battle-action-correct .command-panel {
+  opacity: 0;
+  transform: translateY(22px) scale(.985);
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease, visibility 0s linear 180ms;
+}
+body.battle-active .answer-btn {
+  transition: opacity 170ms ease, transform 170ms ease, filter 170ms ease,
+    background 120ms ease, border-color 120ms ease;
+}
+body.battle-active .answer-btn.answer-fade-out {
+  opacity: 0;
+  transform: translateY(5px) scale(.86);
+  filter: blur(1.5px);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  body.battle-active .command-panel,
+  body.battle-active .answer-btn {
+    transition-duration: 1ms;
+  }
+}
+
+
+/* v60 — portrait-lock fallback: rotate the whole game surface into landscape.
+   Only the game UI is rotated; Safari's browser chrome and iOS orientation lock
+   remain controlled by the operating system. */
+@media (max-width: 760px) and (orientation: portrait) {
+  body.battle-active.battle-rotated-landscape #quizScreen {
+    position: fixed !important;
+    inset: auto !important;
+    left: 50% !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    width: 100vh !important;
+    height: 100vw !important;
+    max-width: none !important;
+    max-height: none !important;
+    transform: translate(-50%, -50%) rotate(90deg) !important;
+    transform-origin: center center !important;
+    overflow: hidden !important;
+  }
+  body.battle-active.battle-rotated-landscape .quiz-top {
+    top: 6px; left: 8px; right: 8px; height: 26px;
+  }
+  body.battle-active.battle-rotated-landscape .quiz-top .back-btn {
+    padding: 4px 7px; font-size: 9px;
+  }
+  body.battle-active.battle-rotated-landscape .question-progress {
+    padding: 3px 6px; gap: 6px; font-size: 9px;
+  }
+  body.battle-active.battle-rotated-landscape .question-progress .progress-track {
+    width: clamp(72px, 12vh, 120px);
+  }
+  body.battle-active.battle-rotated-landscape .battle-header {
+    top: 34px; left: 10px; right: 10px; gap: 8px;
+  }
+  body.battle-active.battle-rotated-landscape .battle-header h2 {
+    max-width: 60vh; font-size: clamp(13px, 1.9vh, 20px);
+  }
+  body.battle-active.battle-rotated-landscape .battle-timer {
+    min-width: 54px; padding: 4px 7px !important;
+  }
+  body.battle-active.battle-rotated-landscape .battle-timer strong { font-size: 14px; }
+  body.battle-active.battle-rotated-landscape .combat-hp {
+    top: 49%; width: clamp(96px, 14vh, 140px);
+  }
+  body.battle-active.battle-rotated-landscape .player-combat-hp { left: 11.5%; }
+  body.battle-active.battle-rotated-landscape .enemy-combat-hp { left: 88.5%; }
+  body.battle-active.battle-rotated-landscape .combat-hp > span { font-size: 8px; }
+  body.battle-active.battle-rotated-landscape .command-panel {
+    left: 7px; right: 7px; bottom: 5px;
+    height: clamp(148px, 42vw, 200px);
+    grid-template-columns: minmax(125px, .58fr) minmax(0, 1.42fr);
+    gap: 5px 8px; padding: 7px 9px; border-radius: 16px;
+  }
+  body.battle-active.battle-rotated-landscape .battle-message { padding-bottom: 3px; font-size: 8px; }
+  body.battle-active.battle-rotated-landscape .question-box { padding: 4px 6px; border-radius: 10px; }
+  body.battle-active.battle-rotated-landscape .question-word { font-size: clamp(18px, 3.3vh, 27px); }
+  body.battle-active.battle-rotated-landscape .answers-grid { gap: 4px; }
+  body.battle-active.battle-rotated-landscape .answer-btn { padding: 3px 6px; font-size: clamp(10px, 1.5vh, 12px); border-radius: 9px; }
+  body.battle-active.battle-rotated-landscape .recovery-elixir-btn { padding: 4px 6px; font-size: 8px; border-radius: 8px; }
+  body.battle-active.battle-rotated-landscape .recovery-elixir-btn small { font-size: 7px; }
+  body.battle-active.battle-rotated-landscape .battle-footer { gap: 9px; font-size: 8px; }
+  body.battle-active.battle-rotated-landscape .battle-footer b { font-size: 10px; }
+  body.battle-active.battle-rotated-landscape .battle-visual-frame {
+    width: min(100%, calc(100vw * 16 / 9));
+    height: min(100%, calc(100vh * 9 / 16));
+  }
+}
+@supports (height: 100dvh) {
+  @media (max-width: 760px) and (orientation: portrait) {
+    body.battle-active.battle-rotated-landscape #quizScreen {
+      width: 100dvh !important; height: 100vw !important;
+    }
+    body.battle-active.battle-rotated-landscape .battle-visual-frame {
+      width: min(100%, calc(100vw * 16 / 9));
+      height: min(100%, calc(100dvh * 9 / 16));
+    }
+  }
+}
+
+
+/* =========================================================
+   v61 TITLE HUB — randomized stage backgrounds + mode selection
+   ========================================================= */
+body.title-screen-active .site-header { display: none; }
+body.title-screen-active main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+body.title-screen-active { background: #101529; }
+#homeScreen.title-screen.active { display: block; width: 100%; min-height: 100vh; }
+.title-hub {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100svh;
+  padding: clamp(30px, 5vh, 58px) clamp(16px, 4vw, 54px) 26px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #18243a;
+  color: #f8f8ff;
+}
+.title-stage-background {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transform: scale(1.015);
+}
+.title-backdrop-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(24,31,55,.16), rgba(10,14,30,.62) 74%),
+    linear-gradient(180deg, rgba(8,13,29,.42), rgba(13,18,38,.30) 40%, rgba(8,12,26,.78));
+  pointer-events: none;
+}
+.title-pixel-frame {
+  position: absolute;
+  inset: 12px;
+  z-index: -1;
+  border: 1px solid rgba(232,242,255,.38);
+  box-shadow: inset 0 0 0 4px rgba(10,16,35,.12), 0 0 0 1px rgba(9,14,31,.24);
+  pointer-events: none;
+}
+.title-reset-btn {
+  position: absolute;
+  top: max(22px, env(safe-area-inset-top));
+  right: max(24px, env(safe-area-inset-right));
+  z-index: 3;
+  color: rgba(255,245,250,.92);
+  background: rgba(18,25,45,.28);
+  border-color: rgba(255,255,255,.42);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.title-hub-content {
+  position: relative;
+  z-index: 1;
+  width: min(1060px, 100%);
+  margin: auto;
+  text-align: center;
+}
+.title-brand-block { margin: 0 auto 24px; }
+.title-brand-kicker {
+  margin: 0 0 12px;
+  color: #c8f2f4;
+  font: 700 clamp(9px, 1.2vw, 12px)/1.5 monospace;
+  letter-spacing: .24em;
+  text-shadow: 0 2px 9px rgba(3,8,22,.65);
+}
+.title-logo {
+  margin: 0;
+  font-family: "Silkscreen", monospace;
+  font-size: clamp(26px, 5.1vw, 58px);
+  line-height: 1.32;
+  letter-spacing: -.04em;
+  color: #fff;
+  text-shadow: 0 4px 0 rgba(17,21,46,.72), 0 9px 25px rgba(4,9,24,.52);
+}
+.title-logo span {
+  color: #ffe39a;
+  text-shadow: 0 3px 0 rgba(95,48,74,.72), 0 0 18px rgba(255,218,143,.3);
+}
+.title-tagline {
+  margin: 12px 0 0;
+  font: 800 clamp(8px, 1vw, 10px)/1.8 monospace;
+  letter-spacing: .18em;
+  color: rgba(248,249,255,.86);
+  text-shadow: 0 2px 9px rgba(0,0,0,.65);
+}
+.title-menu-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 13px;
+  margin: 0 auto 13px;
+  color: #e2e9ff;
+  font: 700 9px/1.4 monospace;
+  letter-spacing: .22em;
+  text-shadow: 0 2px 5px rgba(0,0,0,.6);
+}
+.title-menu-label span { width: clamp(22px, 7vw, 90px); height: 1px; background: linear-gradient(90deg, transparent, rgba(234,244,255,.7)); }
+.title-menu-label span:last-child { transform: scaleX(-1); }
+.title-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: stretch;
+}
+.title-mode-card {
+  position: relative;
+  min-width: 0;
+  min-height: 172px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 15px 15px 13px;
+  overflow: hidden;
+  text-align: left;
+  color: #fff;
+  border: 1px solid rgba(246,249,255,.42);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(240,248,255,.24), rgba(175,198,235,.09) 48%, rgba(19,27,51,.28));
+  box-shadow: 0 15px 32px rgba(3,9,24,.22), inset 0 1px 0 rgba(255,255,255,.28);
+  backdrop-filter: blur(3px) saturate(125%);
+  -webkit-backdrop-filter: blur(3px) saturate(125%);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.title-mode-card::before {
+  content: "";
+  position: absolute;
+  width: 110px;
+  height: 110px;
+  top: -60px;
+  right: -44px;
+  border: 1px solid rgba(255,255,255,.24);
+  transform: rotate(35deg);
+  box-shadow: 0 0 0 10px rgba(255,255,255,.035), 0 0 0 22px rgba(255,255,255,.025);
+  pointer-events: none;
+}
+.title-mode-card:hover, .title-mode-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: rgba(255,241,191,.9);
+  background: linear-gradient(145deg, rgba(245,250,255,.34), rgba(180,204,239,.16) 48%, rgba(19,27,51,.30));
+  box-shadow: 0 18px 38px rgba(3,9,24,.32), inset 0 1px 0 rgba(255,255,255,.45);
+  outline: none;
+}
+.title-mode-number { font: 700 8px/1.5 monospace; letter-spacing: .1em; color: rgba(229,238,255,.78); }
+.title-mode-icon {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  margin: 10px 0 8px;
+  color: #ffe2a1;
+  font-size: 25px;
+  text-shadow: 0 0 15px rgba(255,219,144,.45);
+}
+.title-mode-card strong { font: 700 clamp(10px, 1.15vw, 14px)/1.5 "Silkscreen", monospace; letter-spacing: -.02em; text-shadow: 0 2px 6px rgba(0,0,0,.52); }
+.title-mode-card small { display: block; margin-top: 6px; color: rgba(246,248,255,.82); font-size: 10px; line-height: 1.65; }
+.title-mode-arrow { margin-top: auto; padding-top: 10px; color: #ffe2a1; font: 700 8px/1.3 monospace; letter-spacing: .1em; }
+.mode-word .title-mode-icon { color: #9dfff1; }
+.mode-calendar .title-mode-icon { color: #ffc7e6; }
+.mode-codex .title-mode-icon { color: #d5c2ff; }
+.title-stat-row {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin: 22px auto 0;
+  width: min(420px, 100%);
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 10px;
+  background: rgba(9,15,32,.28);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.title-stat-row > div { flex: 1; padding: 9px 13px; border-right: 1px solid rgba(255,255,255,.16); }
+.title-stat-row > div:last-child { border-right: 0; }
+.title-stat-row small { display: block; font: 700 8px/1.5 monospace; letter-spacing: .16em; color: rgba(224,235,255,.7); }
+.title-stat-row strong { display: block; margin-top: 3px; font: 700 18px/1.3 monospace; color: #fff5c8; text-shadow: 0 2px 6px rgba(0,0,0,.5); }
+.title-footer-note { margin: 12px 0 0; color: rgba(245,248,255,.62); font: 700 8px/1.4 monospace; letter-spacing: .2em; }
+
+/* Mode submenus */
+.mode-menu-screen { width: min(980px, 100%); margin: 0 auto; padding: 6px 0 30px; }
+.mode-menu-intro { color: var(--muted); margin: 2px 0 18px; font-size: 13px; line-height: 1.8; }
+.mode-card-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+.mode-detail-card {
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 22px;
+  text-align: left;
+  color: var(--ink);
+  border: 1px solid rgba(100,88,130,.22);
+  border-radius: 8px;
+  background: linear-gradient(135deg, rgba(255,255,255,.94), rgba(237,235,249,.88));
+  box-shadow: 0 10px 26px rgba(40,32,70,.08), inset 0 1px #fff;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.mode-detail-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(40,32,70,.14); }
+.mode-detail-icon { font-size: 28px; color: var(--purple); margin-bottom: 10px; }
+.mode-detail-kicker { color: #8a849e; font: 700 9px/1.5 monospace; letter-spacing: .15em; }
+.mode-detail-card strong { margin-top: 5px; font: 700 17px/1.6 "Silkscreen", monospace; color: #493b78; }
+.mode-detail-card small { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.mode-detail-action { margin-top: auto; padding-top: 16px; color: #7a5da7; font: 700 9px/1.5 monospace; letter-spacing: .1em; }
+.quest-detail-card { background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(237,228,250,.94)); }
+.weak-detail-card { background: linear-gradient(135deg, rgba(255,255,255,.96), rgba(248,229,239,.94)); }
+.weak-detail-card .mode-detail-icon { color: #bd5e8d; }
+.word-register-panel { margin-bottom: 16px; }
+.word-tool-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; }
+.word-tool-grid .action-btn { min-height: 120px; padding: 20px; background: linear-gradient(145deg, #fff, #f0ecf7); border-radius: 7px; }
+.word-tool-grid .action-btn strong { color: #493b78; font-family: "Silkscreen", monospace; font-size: 10px; }
+.word-tool-grid .action-btn small { line-height: 1.7; }
+.word-tool-arrow { margin-top: 15px; display: block; color: #7a5da7; font: 700 9px monospace; }
+@media (max-width: 820px) {
+  .title-hub { padding: 58px 18px 20px; }
+  .title-mode-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+  .title-mode-card { min-height: 147px; padding: 12px; }
+  .title-brand-block { margin-bottom: 17px; }
+  .title-mode-icon { margin: 6px 0 6px; }
+  .title-mode-card small { font-size: 9px; }
+  .title-stat-row { margin-top: 14px; }
+  .title-footer-note { margin-top: 8px; }
+}
+@media (max-width: 520px) {
+  .title-hub { min-height: 100vh; min-height: 100svh; padding: 62px 16px 18px; }
+  .title-pixel-frame { inset: 6px; }
+  .title-reset-btn { top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); padding: 6px 8px; font-size: 8px; }
+  .title-brand-kicker { font-size: 8px; letter-spacing: .15em; }
+  .title-logo { font-size: clamp(23px, 7vw, 34px); line-height: 1.45; }
+  .title-tagline { font-size: 7px; letter-spacing: .08em; }
+  .title-menu-label { font-size: 8px; margin-bottom: 8px; }
+  .title-mode-grid { gap: 8px; }
+  .title-mode-card { min-height: 134px; padding: 10px; border-radius: 9px; }
+  .title-mode-number { font-size: 7px; }
+  .title-mode-icon { width: 27px; height: 27px; font-size: 21px; margin: 3px 0; }
+  .title-mode-card strong { font-size: 9px; }
+  .title-mode-card small { font-size: 8px; line-height: 1.5; }
+  .title-mode-arrow { padding-top: 6px; font-size: 7px; }
+  .title-stat-row { width: 100%; margin-top: 12px; }
+  .title-stat-row > div { padding: 7px 5px; }
+  .title-stat-row strong { font-size: 15px; }
+  .title-footer-note { font-size: 6px; letter-spacing: .12em; }
+  .mode-card-grid, .word-tool-grid { grid-template-columns: 1fr; }
+  .mode-detail-card { min-height: 165px; padding: 17px; }
+  .word-tool-grid .action-btn { min-height: 98px; }
+  .word-register-panel { padding: 15px; }
+  .word-register-panel .input-row { grid-template-columns: 1fr; }
+}
+@media (max-height: 720px) and (min-width: 821px) {
+  .title-hub { padding-top: 28px; padding-bottom: 16px; }
+  .title-brand-block { margin-bottom: 14px; }
+  .title-mode-card { min-height: 145px; }
+  .title-stat-row { margin-top: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-mode-card, .mode-detail-card { transition: none; }
+}
