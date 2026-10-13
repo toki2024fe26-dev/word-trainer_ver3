@@ -881,6 +881,12 @@ let clearedStages = {};
 
 let currentScreen = "homeScreen";
 
+// Title screen reuses each stage's existing 2D pixel-art background.
+let titleBackdropAnimationId = 0;
+let titleBackdropTheme = "";
+const TITLE_BACKDROP_THEMES = ["grassland", "forest", "beach", "volcano", "snowfield", "ruins"];
+
+
 let quizWords = [];
 let currentIndex = 0;
 let currentStage = 0;
@@ -897,6 +903,9 @@ let questionTimerStart = 0;
 let questionTimerId = null;
 let questionTimeoutId = null;
 let questionTimerActive = false;
+let questionTimerElapsedMs = 0;
+let questionTimeoutRemainingMs = 20000;
+let questionTimerPausedForOrientation = false;
 
 let answerLocked = false;
 
@@ -907,6 +916,7 @@ let animationId = null;
 
 let battleState = {
   attack: 0,
+  enemyAttack: 0,
   flashUntil: 0,
   damageUntil: 0,
   damageX: 0,
@@ -1341,6 +1351,10 @@ function renderStats() {
 }
 
 function showScreen(id) {
+  const previousScreen = currentScreen;
+  if (currentScreen === "quizScreen" && id !== "quizScreen") {
+    stopQuestionTimer();
+  }
   if (id !== "monsterBookScreen" && id !== "calendarScreen") {
     closeExtraModal();
   }
@@ -1366,6 +1380,19 @@ function showScreen(id) {
   );
 
   currentScreen = id;
+  document.body.classList.toggle("title-screen-active", id === "homeScreen");
+  if (id === "homeScreen") {
+    startTitleBackdropRandomized(previousScreen !== "homeScreen");
+  } else {
+    stopTitleBackdropAnimation();
+  }
+  document.body.classList.toggle("battle-active", id === "quizScreen");
+  document.body.classList.remove("battle-action-correct", "battle-action-wrong");
+  if (id === "quizScreen") {
+    battleMarginGeometryDirty = true;
+    requestAnimationFrame(() => updateBattleMarginGeometry(true));
+  }
+  syncBattleOrientation();
   updateRecoveryButton();
 
   window.scrollTo({
@@ -1578,6 +1605,10 @@ function closeExtraModal() {
   document.querySelectorAll(".extra-modal").forEach(modal => modal.classList.remove("active"));
   document.body.classList.remove("modal-active");
   currentScreen = "homeScreen";
+  if (document.querySelector("#homeScreen.active")) {
+    document.body.classList.add("title-screen-active");
+    startTitleBackdropRandomized(false);
+  }
 }
 
 /* =========================================================
@@ -1648,31 +1679,20 @@ function updateResultActions() {
    ========================================================= */
 
 function createExtraNavigation() {
-  if (document.getElementById("extraNavigation")) return;
-  const home = $("#homeScreen");
-  if (!home) return;
+  // Home navigation is now authored in index.html so the title hub has one
+  // consistent visual hierarchy. This function only wires direct-entry tools.
+  const bindOnce = (element, flag, handler) => {
+    if (!element || element.dataset[flag] === "true") return;
+    element.dataset[flag] = "true";
+    element.addEventListener("click", () => {
+      playButtonSound();
+      handler();
+    });
+  };
 
-  const box = document.createElement("div");
-  box.id = "extraNavigation";
-  box.className = "dashboard-grid";
-  box.style.marginTop = "18px";
-  box.innerHTML = `
-    <section class="panel">
-      <div class="panel-heading"><span class="panel-number">03</span><h3>ADVENTURE DATABASE</h3></div>
-      <div class="action-grid">
-        <button id="openMonsterBookBtn" class="action-btn"><strong>MONSTER CODEX</strong><small>モンスター図鑑</small></button>
-        <button id="openCalendarBtn" class="action-btn"><strong>STUDY CALENDAR</strong><small>学習記録・報酬</small></button>
-      </div>
-    </section>
-    <section class="panel">
-      <div class="panel-heading"><span class="panel-number">04</span><h3>TRAINING QUEST</h3></div>
-      <button id="weakQuestBtn" class="action-btn quest-btn" style="width:100%"><strong>WEAK QUEST</strong><small>苦手単語を集中攻略</small></button>
-    </section>`;
-  home.appendChild(box);
-
-  $("#openMonsterBookBtn").addEventListener("click", () => { playButtonSound(); openExtraModal("monsterBookScreen"); });
-  $("#openCalendarBtn").addEventListener("click", () => { playButtonSound(); openExtraModal("calendarScreen"); });
-  $("#weakQuestBtn").addEventListener("click", () => { playButtonSound(); startWeakQuest(); });
+  bindOnce($("#openMonsterBookBtn"), "codexBound", () => openExtraModal("monsterBookScreen"));
+  bindOnce($("#openCalendarBtn"), "calendarBound", () => openExtraModal("calendarScreen"));
+  bindOnce($("#weakQuestBtn"), "weakQuestBound", () => startWeakQuest());
   updateWeakQuizButton();
 }
 
@@ -2668,8 +2688,8 @@ function updatePlayerHp() {
   updateRecoveryButton();
 }
 
-function startPlayerDamageAnimation() {
-  const now = performance.now();
+function startPlayerDamageAnimation(delay = 0) {
+  const now = performance.now() + Math.max(0, delay);
   battleState.playerDamageUntil = now + 520;
   battleState.playerDamageFlashUntil = now + 180;
   battleState.playerDamageX = 58;
@@ -2716,11 +2736,9 @@ function formatQuizTime(seconds) {
 }
 
 function updateQuizTimer() {
-  if (!questionTimerActive) return;
+  if (!questionTimerActive || questionTimerPausedForOrientation) return;
 
-  const elapsed =
-    (performance.now() - questionTimerStart) / 1000;
-
+  const elapsed = getQuestionElapsedSeconds();
   const timer = $("#quizTimer");
   if (timer) {
     timer.textContent = formatQuizTime(elapsed);
@@ -2732,8 +2750,11 @@ function updateQuizTimer() {
 
 function startQuestionTimer() {
   stopQuestionTimer();
+  questionTimerElapsedMs = 0;
+  questionTimeoutRemainingMs = 20000;
   questionTimerStart = performance.now();
   questionTimerActive = true;
+  questionTimerPausedForOrientation = false;
 
   const timer = $("#quizTimer");
   if (timer) {
@@ -2744,13 +2765,20 @@ function startQuestionTimer() {
   // 20秒無回答で「MISS」と同じくプレイヤーが1ダメージを受ける。
   questionTimeoutId = window.setTimeout(() => {
     handleQuestionTimeout();
-  }, 20000);
+  }, questionTimeoutRemainingMs);
 
   questionTimerId = requestAnimationFrame(updateQuizTimer);
+  if (document.body.classList.contains("battle-needs-landscape")) {
+    pauseQuestionTimerForOrientation();
+  }
 }
 
 function stopQuestionTimer() {
+  if (questionTimerActive && !questionTimerPausedForOrientation && questionTimerStart) {
+    questionTimerElapsedMs += Math.max(0, performance.now() - questionTimerStart);
+  }
   questionTimerActive = false;
+  questionTimerPausedForOrientation = false;
 
   if (questionTimerId !== null) {
     cancelAnimationFrame(questionTimerId);
@@ -2765,8 +2793,64 @@ function stopQuestionTimer() {
 
 function getQuestionElapsedSeconds() {
   if (!questionTimerStart) return 999;
-  return Math.max(0, (performance.now() - questionTimerStart) / 1000);
+  const runningMs = questionTimerActive && !questionTimerPausedForOrientation
+    ? Math.max(0, performance.now() - questionTimerStart)
+    : 0;
+  return Math.max(0, (questionTimerElapsedMs + runningMs) / 1000);
 }
+
+function pauseQuestionTimerForOrientation() {
+  if (!questionTimerActive || questionTimerPausedForOrientation) return;
+  const now = performance.now();
+  questionTimerElapsedMs += Math.max(0, now - questionTimerStart);
+  questionTimeoutRemainingMs = Math.max(0, 20000 - questionTimerElapsedMs);
+  questionTimerPausedForOrientation = true;
+
+  if (questionTimerId !== null) {
+    cancelAnimationFrame(questionTimerId);
+    questionTimerId = null;
+  }
+  if (questionTimeoutId !== null) {
+    clearTimeout(questionTimeoutId);
+    questionTimeoutId = null;
+  }
+  const timer = $("#quizTimer");
+  if (timer) timer.textContent = formatQuizTime(questionTimerElapsedMs / 1000);
+}
+
+function resumeQuestionTimerAfterOrientation() {
+  if (!questionTimerActive || !questionTimerPausedForOrientation) return;
+  questionTimerPausedForOrientation = false;
+  questionTimerStart = performance.now();
+  questionTimeoutId = window.setTimeout(() => {
+    handleQuestionTimeout();
+  }, questionTimeoutRemainingMs);
+  questionTimerId = requestAnimationFrame(updateQuizTimer);
+}
+
+function syncBattleOrientation() {
+  const inBattle = currentScreen === "quizScreen";
+  const portraitPhone = window.matchMedia("(max-width: 760px) and (orientation: portrait)").matches;
+  // When the phone stays portrait because orientation lock is enabled, rotate
+  // the game surface itself into a landscape layout. This cannot rotate Safari's
+  // browser chrome or unlock iOS, but it keeps the game playable while the user
+  // holds the phone sideways.
+  const useLandscapeFallback = inBattle && portraitPhone;
+  document.body.classList.toggle("battle-rotated-landscape", useLandscapeFallback);
+  // The old blocking prompt would hide the field. Keep it off because the game
+  // now rotates itself; if an older state paused the timer, resume from remaining time.
+  document.body.classList.remove("battle-needs-landscape");
+  if (inBattle && questionTimerPausedForOrientation) {
+    resumeQuestionTimerAfterOrientation();
+  }
+  battleMarginGeometryDirty = true;
+  requestAnimationFrame(() => updateBattleMarginGeometry(true));
+}
+
+window.addEventListener("resize", syncBattleOrientation, { passive: true });
+window.addEventListener("orientationchange", () => {
+  window.setTimeout(syncBattleOrientation, 100);
+});
 
 function handleQuestionTimeout() {
   if (!questionTimerActive || answerLocked) return;
@@ -2774,6 +2858,8 @@ function handleQuestionTimeout() {
 
   stopQuestionTimer();
   answerLocked = true;
+  document.body.classList.add("battle-action-wrong");
+  document.body.classList.remove("battle-action-correct");
 
   const current = quizWords[currentIndex];
   if (!current) return;
@@ -2785,13 +2871,19 @@ function handleQuestionTimeout() {
       button.classList.add("correct");
     }
   });
+  window.setTimeout(() => {
+    buttons.forEach(button => {
+      if (button.textContent !== current.jp) button.classList.add("answer-fade-out");
+    });
+  }, 120);
 
   recordWrongWord(current);
   playWrongSound();
 
   playerHp = Math.max(0, playerHp - 1);
   updatePlayerHp();
-  startPlayerDamageAnimation();
+  startEnemyAttackAnimation();
+  startPlayerDamageAnimation(150);
   streak = 0;
 
   if ($("#battleMessage")) {
@@ -2841,6 +2933,8 @@ function showTimeBonus(bonus) {
    ========================================================= */
 
 function nextQuestion() {
+  document.body.classList.remove("battle-action-correct", "battle-action-wrong");
+
   if (
     currentIndex >=
     quizWords.length
@@ -3230,6 +3324,8 @@ function handleAnswer(
      ======================================================= */
 
   if (!isCorrect) {
+    document.body.classList.add("battle-action-wrong");
+    document.body.classList.remove("battle-action-correct");
     recordWrongWord(current);
 
     // ミスは通常どおりHPに反映。エリクサーは戦闘中の専用ボタンで手動使用する。
@@ -3239,9 +3335,17 @@ function handleAnswer(
       "wrong"
     );
 
+    // Briefly show the selected mistake, then leave only the correct option visible.
+    window.setTimeout(() => {
+      buttons.forEach(button => {
+        if (button.textContent !== current.jp) button.classList.add("answer-fade-out");
+      });
+    }, 120);
+
     playerHp = Math.max(0, playerHp - 1);
     updatePlayerHp();
-    startPlayerDamageAnimation();
+    startEnemyAttackAnimation();
+    startPlayerDamageAnimation(150);
 
     streak = 0;
 
@@ -3291,6 +3395,9 @@ function handleAnswer(
   if (timeBonus > 0) {
     showTimeBonus(timeBonus);
   }
+  // Hide the command HUD during the player's strike so the action reads clearly.
+  document.body.classList.add("battle-action-correct");
+  document.body.classList.remove("battle-action-wrong");
   stageHit++;
 
   if ($("#quizScore")) {
@@ -3508,6 +3615,242 @@ const backgroundCtx = backgroundCanvas
   ? backgroundCanvas.getContext("2d")
   : null;
 
+// Responsive background extension: mirrors only the outer background strips
+// behind the centered 16:9 battlefield. Sprites and the core field stay undistorted.
+const battlefieldExtensionCanvas = canvas
+  ? document.createElement("canvas")
+  : null;
+const battlefieldExtensionCtx = battlefieldExtensionCanvas
+  ? battlefieldExtensionCanvas.getContext("2d")
+  : null;
+if (battlefieldExtensionCanvas) {
+  battlefieldExtensionCanvas.className = "battle-background-extension";
+  battlefieldExtensionCanvas.setAttribute("aria-hidden", "true");
+  const battleHost = document.querySelector(".battle-window");
+  if (battleHost) battleHost.insertBefore(battlefieldExtensionCanvas, battleHost.firstChild);
+}
+
+// Seam-cover overlay: repaints only a tiny strip from the original background
+// at the 16:9 frame edges. This hides Safari/WebKit's dark compositing seams
+// where the contained field meets the mirrored responsive margins.
+const battlefieldSeamCanvas = canvas ? document.createElement("canvas") : null;
+const battlefieldSeamCtx = battlefieldSeamCanvas
+  ? battlefieldSeamCanvas.getContext("2d")
+  : null;
+if (battlefieldSeamCanvas) {
+  battlefieldSeamCanvas.className = "battle-background-seam-cover";
+  battlefieldSeamCanvas.setAttribute("aria-hidden", "true");
+  const battleHost = document.querySelector(".battle-window");
+  if (battleHost) battleHost.appendChild(battlefieldSeamCanvas);
+}
+
+/* =========================================================
+   RESPONSIVE LETTERBOX GRADIENT — stage-colored edge to black
+   ========================================================= */
+const BATTLE_MARGIN_PALETTES = {
+  grassland: { sky: "#91c2d4", mid: "#7fa65f", ground: "#4f713f" },
+  forest:    { sky: "#3f6570", mid: "#355348", ground: "#233a30" },
+  beach:     { sky: "#7cc8da", mid: "#55aabd", ground: "#d6c079" },
+  volcano:   { sky: "#473342", mid: "#6c3e35", ground: "#211b25" },
+  snowfield: { sky: "#c8dbe7", mid: "#a9c4d3", ground: "#e6eff3" },
+  ruins:     { sky: "#30304a", mid: "#514b5d", ground: "#171725" }
+};
+let appliedBattleMarginTheme = "";
+let battleMarginGeometryDirty = true;
+
+function applyBattleMarginTheme(theme) {
+  const host = document.querySelector(".battle-window");
+  if (!host) return;
+  const key = BATTLE_MARGIN_PALETTES[theme] ? theme : "grassland";
+  if (appliedBattleMarginTheme === key) return;
+  const palette = BATTLE_MARGIN_PALETTES[key];
+  host.style.setProperty("--battle-margin-sky", palette.sky);
+  host.style.setProperty("--battle-margin-mid", palette.mid);
+  host.style.setProperty("--battle-margin-ground", palette.ground);
+  appliedBattleMarginTheme = key;
+}
+
+function getBattlefieldLocalGeometry(host, frame) {
+  // Use layout-space dimensions rather than getBoundingClientRect(). The latter
+  // swaps width/height after the portrait fallback rotates #quizScreen by 90deg.
+  const hostW = Math.max(1, host.clientWidth || host.offsetWidth || 1);
+  const hostH = Math.max(1, host.clientHeight || host.offsetHeight || 1);
+  const frameW = Math.max(1, frame.clientWidth || frame.offsetWidth || 1);
+  const frameH = Math.max(1, frame.clientHeight || frame.offsetHeight || 1);
+  // The 16:9 frame is centered horizontally and anchored to the top of the field.
+  const frameLeft = Math.max(0, (hostW - frameW) / 2);
+  const frameTop = 0;
+  return {
+    hostW, hostH, frameW, frameH, frameLeft, frameTop,
+    frameRight: frameLeft + frameW,
+    frameBottom: frameTop + frameH,
+    gapLeft: frameLeft,
+    gapRight: Math.max(0, hostW - frameLeft - frameW),
+    gapBottom: Math.max(0, hostH - frameTop - frameH)
+  };
+}
+
+function updateBattleMarginGeometry(force = false) {
+  const host = document.querySelector(".battle-window");
+  const frame = host?.querySelector(".battle-visual-frame");
+  if (!host || !frame) return;
+  const viewportKey = `${window.innerWidth}x${window.innerHeight}:${document.body.classList.contains("battle-rotated-landscape")}`;
+  if (!force && !battleMarginGeometryDirty && viewportKey === updateBattleMarginGeometry.lastViewportKey) return;
+  const g = getBattlefieldLocalGeometry(host, frame);
+  host.style.setProperty("--battle-gap-left", `${Math.ceil(g.gapLeft)}px`);
+  host.style.setProperty("--battle-gap-right", `${Math.ceil(g.gapRight)}px`);
+  host.style.setProperty("--battle-gap-bottom", `${Math.ceil(g.gapBottom)}px`);
+  updateBattleMarginGeometry.lastViewportKey = viewportKey;
+  battleMarginGeometryDirty = false;
+}
+updateBattleMarginGeometry.lastViewportKey = "";
+
+function drawBattlefieldExtension(theme) {
+  if (!battlefieldExtensionCanvas || !battlefieldExtensionCtx || !backgroundCanvas ||
+      !document.body.classList.contains("battle-active")) return;
+
+  const host = document.querySelector(".battle-window");
+  const frame = host?.querySelector(".battle-visual-frame");
+  if (!host || !frame) return;
+
+  const geometry = getBattlefieldLocalGeometry(host, frame);
+  const { hostW, hostH, frameW, frameH, frameLeft, frameTop, frameBottom, gapLeft, gapRight, gapBottom } = geometry;
+  const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  const backingW = Math.max(1, Math.round(hostW * dpr));
+  const backingH = Math.max(1, Math.round(hostH * dpr));
+
+  if (battlefieldExtensionCanvas.width !== backingW || battlefieldExtensionCanvas.height !== backingH) {
+    battlefieldExtensionCanvas.width = backingW;
+    battlefieldExtensionCanvas.height = backingH;
+  }
+
+  const extensionCtx = battlefieldExtensionCtx;
+  extensionCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  extensionCtx.clearRect(0, 0, hostW, hostH);
+
+  // Stage-colored gradient is a fallback under the extended edge strips.
+  const palette = BATTLE_MARGIN_PALETTES[theme] || BATTLE_MARGIN_PALETTES.grassland;
+  const base = extensionCtx.createLinearGradient(0, 0, 0, hostH);
+  base.addColorStop(0, palette.sky);
+  base.addColorStop(0.54, palette.mid);
+  base.addColorStop(1, palette.ground);
+  extensionCtx.fillStyle = base;
+  extensionCtx.fillRect(0, 0, hostW, hostH);
+
+  const sourceW = backgroundCanvas.width;
+  const sourceH = backgroundCanvas.height;
+  const frameSourceW = Math.max(1, Math.min(sourceW, Math.ceil(sourceW * Math.max(gapLeft, gapRight) / frameW) + 2));
+  extensionCtx.save();
+  // Keep the mirrored extension crisp and opaque. Blurring a clipped canvas edge
+  // creates a transparent fringe that can show up as a dark vertical seam.
+  extensionCtx.filter = "none";
+  extensionCtx.imageSmoothingEnabled = false;
+
+  // Left margin: mirror a narrow strip so its inner edge matches the field's left edge.
+  if (gapLeft > 0.5) {
+    extensionCtx.save();
+    extensionCtx.beginPath();
+    extensionCtx.rect(0, frameTop, gapLeft, frameH);
+    extensionCtx.clip();
+    extensionCtx.translate(gapLeft, frameTop);
+    extensionCtx.scale(-1, 1);
+    extensionCtx.drawImage(backgroundCanvas, 0, 0, frameSourceW, sourceH, 0, 0, gapLeft, frameH);
+    extensionCtx.restore();
+  }
+
+  // Right margin: mirror a strip from the field's right edge.
+  if (gapRight > 0.5) {
+    extensionCtx.save();
+    extensionCtx.beginPath();
+    extensionCtx.rect(frameLeft + frameW, frameTop, gapRight, frameH);
+    extensionCtx.clip();
+    extensionCtx.translate(frameLeft + frameW, frameTop);
+    extensionCtx.scale(-1, 1);
+    extensionCtx.drawImage(
+      backgroundCanvas,
+      sourceW - frameSourceW, 0, frameSourceW, sourceH,
+      -gapRight, 0, gapRight, frameH
+    );
+    extensionCtx.restore();
+  }
+
+  // When the viewport is taller than 16:9, continue the ground below the field.
+  if (gapBottom > 0.5) {
+    const frameSourceH = Math.max(1, Math.min(sourceH, Math.ceil(sourceH * gapBottom / frameH) + 2));
+    extensionCtx.save();
+    extensionCtx.beginPath();
+    extensionCtx.rect(0, frameBottom, hostW, gapBottom);
+    extensionCtx.clip();
+    extensionCtx.translate(0, 2 * frameBottom + gapBottom);
+    extensionCtx.scale(1, -1);
+    extensionCtx.drawImage(
+      backgroundCanvas,
+      0, sourceH - frameSourceH, sourceW, frameSourceH,
+      0, frameBottom, hostW, gapBottom
+    );
+    extensionCtx.restore();
+  }
+
+  extensionCtx.restore();
+}
+
+function drawBattlefieldSeamCover() {
+  if (!battlefieldSeamCanvas || !battlefieldSeamCtx || !backgroundCanvas ||
+      !document.body.classList.contains("battle-active")) return;
+
+  const host = document.querySelector(".battle-window");
+  const frame = host?.querySelector(".battle-visual-frame");
+  if (!host || !frame) return;
+
+  const geometry = getBattlefieldLocalGeometry(host, frame);
+  const { hostW, hostH, frameW, frameH, frameLeft, frameTop, frameRight, frameBottom } = geometry;
+  const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  const backingW = Math.max(1, Math.round(hostW * dpr));
+  const backingH = Math.max(1, Math.round(hostH * dpr));
+
+  if (battlefieldSeamCanvas.width !== backingW || battlefieldSeamCanvas.height !== backingH) {
+    battlefieldSeamCanvas.width = backingW;
+    battlefieldSeamCanvas.height = backingH;
+  }
+
+  const cover = battlefieldSeamCtx;
+  cover.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cover.clearRect(0, 0, hostW, hostH);
+  cover.imageSmoothingEnabled = false;
+  cover.globalAlpha = 1;
+  cover.globalCompositeOperation = "source-over";
+
+  // A narrow bleed (2.5 CSS px each side) replaces the clipped boundary with
+  // real scene pixels. The sprite/scene itself is not scaled or distorted.
+  const bleed = 2.5;
+  const sw = backgroundCanvas.width;
+  const sh = backgroundCanvas.height;
+  if (frameLeft >= -bleed && frameLeft <= hostW) {
+    cover.drawImage(backgroundCanvas, 0, 0, 1, sh,
+      Math.max(0, frameLeft - bleed), frameTop, bleed + Math.min(bleed, frameLeft), frameH);
+  }
+  if (frameRight >= 0 && frameRight <= hostW + bleed) {
+    cover.drawImage(backgroundCanvas, Math.max(0, sw - 1), 0, 1, sh,
+      frameRight - bleed, frameTop, bleed + Math.min(bleed, hostW - frameRight), frameH);
+  }
+  // Also cover a possible horizontal seam where a tall viewport exposes space
+  // below the 16:9 scene. The ground edge pixels continue naturally into it.
+  if (frameBottom > 0 && frameBottom < hostH) {
+    cover.drawImage(backgroundCanvas, 0, sh - 1, sw, 1,
+      0, frameBottom - bleed, hostW, bleed * 2);
+  }
+  cover.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+window.addEventListener("resize", () => {
+  battleMarginGeometryDirty = true;
+  requestAnimationFrame(() => updateBattleMarginGeometry(true));
+}, { passive: true });
+window.addEventListener("orientationchange", () => {
+  battleMarginGeometryDirty = true;
+  requestAnimationFrame(() => updateBattleMarginGeometry(true));
+}, { passive: true });
+
 if (canvas) {
   if (mainCtx) mainCtx.imageSmoothingEnabled = false;
   if (backgroundCanvas) {
@@ -3527,6 +3870,7 @@ function getIdleBob(frame) {
 
 function resetBattleAnimation() {
   battleState.attack = 0;
+  battleState.enemyAttack = 0;
   battleState.flashUntil = 0;
   battleState.damageUntil = 0;
   battleState.playerDamageUntil = 0;
@@ -3558,6 +3902,11 @@ function startAttackAnimation() {
 
   battleState.damageX = 235;
   battleState.damageY = 64;
+}
+
+function startEnemyAttackAnimation() {
+  // The enemy briefly recoils, lunges toward the player, then snaps back.
+  battleState.enemyAttack = 1;
 }
 
 function startDefeatAnimation() {
@@ -3655,8 +4004,12 @@ function animationLoop(
     battleState.attack =
       Math.max(
         0,
-        battleState.attack - 0.055
+        battleState.attack - 0.04
       );
+  }
+  if (battleState.enemyAttack > 0) {
+    battleState.enemyAttack =
+      Math.max(0, battleState.enemyAttack - 0.04);
   }
 
   if (ctx) {
@@ -3783,6 +4136,9 @@ function drawBattle(time) {
   const physicalH = canvas.height;
 
   const currentDefinition = stages[selectedStageIndex] || stages[0];
+  const backgroundTheme = currentDefinition.theme || currentDefinition.id;
+  applyBattleMarginTheme(backgroundTheme);
+  updateBattleMarginGeometry();
 
   /* ================= BACKGROUND ================= */
   if (backgroundCtx && mainCtx && backgroundCanvas) {
@@ -3790,7 +4146,6 @@ function drawBattle(time) {
     backgroundCtx.clearRect(0, 0, physicalW, physicalH);
     backgroundCtx.setTransform(scale, 0, 0, scale, 0, 0);
 
-    const backgroundTheme = currentDefinition.theme || currentDefinition.id;
     const saturationMap = {
       grassland: 0.94,
       forest: 0.93,
@@ -3811,8 +4166,13 @@ function drawBattle(time) {
     mainCtx.setTransform(1, 0, 0, 1, 0, 0);
     mainCtx.clearRect(0, 0, physicalW, physicalH);
     mainCtx.save();
-    mainCtx.imageSmoothingEnabled = true;
-    mainCtx.filter = "blur(2px)";
+    // Draw the scene background without a canvas-edge blur. The blur made the
+    // outer pixels partially transparent and produced thin dark lines where
+    // the 16:9 field met the responsive extension. The CSS glass HUD still
+    // provides the softer look, while the pixel-art background remains crisp.
+    mainCtx.imageSmoothingEnabled = false;
+    mainCtx.filter = "none";
+    mainCtx.globalAlpha = 1;
     mainCtx.drawImage(
       backgroundCanvas,
       0,
@@ -3830,6 +4190,11 @@ function drawBattle(time) {
     mainCtx.setTransform(1, 0, 0, 1, 0, 0);
   }
 
+  // Expand only the stage scenery into any outer margins; the main 16:9
+  // scene (including all characters) remains centered, top-anchored, and undistorted.
+  drawBattlefieldExtension(backgroundTheme);
+  drawBattlefieldSeamCover();
+
   /* ================= FOREGROUND ================= */
   ctx = mainCtx;
   mainCtx.setTransform(scale, 0, 0, scale, 0, 0);
@@ -3838,6 +4203,7 @@ function drawBattle(time) {
   drawStageAccentSparkles(currentDefinition.theme || currentDefinition.id, time, w, h);
   drawHero(time);
   drawEnemy(time);
+  drawEnemyAttackEffect(time);
   drawHeroFineDetails(time);
   drawHeroMicroDetails(time);
   drawEnemyLightingPass(time);
@@ -3877,6 +4243,31 @@ function drawBattle(time) {
   }
 
   mainCtx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function drawEnemyAttackEffect(time) {
+  if (!ctx || battleState.enemyAttack <= 0) return;
+  const p = 1 - battleState.enemyAttack;
+  if (p < 0.26 || p > 0.78) return;
+
+  const t = (p - 0.26) / 0.52;
+  const x = Math.round(213 - t * 112);
+  const y = Math.round(76 + Math.sin(t * Math.PI) * 5);
+  const alpha = Math.max(0, 1 - Math.abs(t - 0.56) / 0.5);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // A crisp, blocky slash travels from the enemy toward the player.
+  rect(x + 4, y - 4, 12, 2, "#612c54");
+  rect(x, y - 2, 14, 3, "#e85f79");
+  rect(x - 5, y, 11, 2, "#ffd0ce");
+  rect(x + 3, y + 3, 8, 2, "#fff4dc");
+  rect(x + 11, y - 6, 2, 2, "#ffffff");
+  if (p > 0.48 && p < 0.7) {
+    rect(x - 7, y - 4, 2, 2, "#ffd98d");
+    rect(x - 2, y + 4, 2, 2, "#f3a0c9");
+  }
+  ctx.restore();
 }
 
 function drawBackgroundSparkles(theme, time, w, h) {
@@ -4030,7 +4421,7 @@ function drawStageColorWash(theme, w, h) {
   ctx.restore();
 }
 
-function drawStageBackground(theme, time, w, h) {
+function drawStageBackground(theme, time, w, h, showStageLabel = true) {
   // セレクト画面の空気感をそのまま戦闘画面へ。
   // 「空 → 遠景 → 中景 → 地面」の4層にして、細かなピクセルを増やす。
   const sky = (top, bottom) => {
@@ -4242,7 +4633,7 @@ function drawStageBackground(theme, time, w, h) {
   drawStageUltraFinePixels(theme, time, w, h);
 
   // ステージ名は既存HUDの一部として残す。
-  pixelText(theme === "ruins" ? "ANCIENT RUINS" : theme.toUpperCase(), 9, 10, 7, "#ffffff");
+  if (showStageLabel) pixelText(theme === "ruins" ? "ANCIENT RUINS" : theme.toUpperCase(), 9, 10, 7, "#ffffff");
 }
 /* =========================================================
    STAGE FINE PIXEL DETAILS
@@ -4308,6 +4699,86 @@ function drawStageFineDetails(theme, time, w, h) {
     p(188, 60, 21, 2, "#d8e9ef"); p(195, 57, 10, 2, "#edf4f5");
     p(147, 115, 8, 3, "#8aa86a"); p(151, 113, 3, 2, "#aac58a");
     p(278, 101, 9, 3, "#7f9f62");
+
+    // Distant mountain foliage: tiny stepped tree/shrub silhouettes tucked into
+    // the slopes, so the hills feel leafy without cluttering the sky line.
+    const ridgeTrees = [
+      [13, 86, 0], [46, 72, 1], [87, 86, 2], [124, 69, 1],
+      [172, 80, 0], [205, 69, 2], [281, 73, 1], [299, 80, 0]
+    ];
+    ridgeTrees.forEach(([x, y, variant], i) => {
+      const sway = Math.round(Math.sin(time / 980 + i * 1.7) * 0.5);
+      const ox = x + sway;
+      // Narrow trunk peeks through a cluster of angular leaf tiers.
+      p(ox + 4, y + 5, 2, 5, "#5a7c49");
+      p(ox + 2, y + 3, 6, 3, "#4f7e48");
+      p(ox + 1, y + 1, 8, 4, variant === 2 ? "#5e914d" : "#648f4e");
+      p(ox + 3, y - 1, 5, 3, variant === 1 ? "#7cad5a" : "#78a957");
+      p(ox + 4, y, 2, 2, "#a2c875");
+      p(ox, y + 4, 3, 2, "#79a75a");
+      if (variant !== 0) p(ox + 7, y + 4, 3, 2, "#82ae5d");
+    });
+    // Small rocky ledges and sunlit grass patches on the mountain faces.
+    const ridgeMarks = [
+      [29, 91, 5, "#94b775"], [59, 82, 7, "#a4c57d"], [102, 80, 6, "#9fc17a"],
+      [143, 88, 8, "#a9c980"], [184, 73, 6, "#87ab61"], [222, 88, 7, "#9cbe75"],
+      [257, 85, 6, "#accb82"], [307, 91, 5, "#91b36c"]
+    ];
+    ridgeMarks.forEach(([x, y, width, color], i) => {
+      p(x, y, width, 2, color);
+      p(x + (i % 3), y + 2, Math.max(2, width - 3), 1, i % 2 ? "#6d9653" : "#b8d48a");
+    });
+
+    // Foreground grass becomes a layered field rather than horizontal stripes.
+    // Small tufts sway independently by one pixel to retain the pixel-art style.
+    const grassTufts = [
+      [9, 165, 0], [39, 154, 1], [68, 171, 2], [97, 160, 1],
+      [130, 169, 0], [160, 156, 2], [191, 171, 1], [221, 160, 0],
+      [251, 169, 2], [279, 156, 1], [306, 169, 0]
+    ];
+    grassTufts.forEach(([x, y, phase], i) => {
+      const sway = Math.round(Math.sin(time / 260 + phase) * 1);
+      const gx = x + sway;
+      const dark = i % 2 ? "#3f693c" : "#456e3f";
+      const mid = i % 3 ? "#79a653" : "#88b65d";
+      p(gx + 3, y, 1, 5, dark);
+      p(gx + 1, y + 2, 1, 4, mid);
+      p(gx + 5, y + 1, 1, 4, mid);
+      p(gx, y + 4, 2, 2, "#65934a");
+      p(gx + 4, y + 3, 3, 2, i % 2 ? "#9fc76b" : "#6e9d4d");
+      if (i % 3 === 0) p(gx + 2, y - 1, 2, 2, "#b5d77b");
+    });
+    // Irregular ground patches break up the flat green base.
+    const grassPatches = [
+      [6, 137, 16, "#628849"], [35, 159, 13, "#6b914a"], [57, 143, 18, "#4b733e"],
+      [88, 169, 14, "#5b8043"], [111, 139, 17, "#6d964d"], [142, 163, 21, "#4e753f"],
+      [175, 143, 14, "#6a9049"], [203, 164, 18, "#5a8143"], [237, 139, 15, "#6e964d"],
+      [263, 160, 18, "#4d753f"], [291, 141, 20, "#648a46"]
+    ];
+    grassPatches.forEach(([x, y, ww, color], i) => {
+      p(x, y, ww, 2, color);
+      p(x + 2 + (i % 4), y - 2, Math.max(3, ww - 7), 2, i % 2 ? "#8db75b" : "#79a652");
+      p(x + 5, y + 2, Math.max(3, ww - 10), 1, "#426d3a");
+    });
+    // A few little stones with highlight pixels add foreground depth.
+    const fieldStones = [[24, 170], [83, 156], [151, 174], [231, 151], [292, 166]];
+    fieldStones.forEach(([x, y], i) => {
+      p(x, y + 1, 5, 2, "#54754a");
+      p(x + 1, y, 3, 2, i % 2 ? "#a4b982" : "#9ab078");
+      p(x + 2, y, 1, 1, "#d0d8a1");
+    });
+    // Mixed tiny blossoms: white, butter-yellow and pink, each with a darker stem.
+    const meadowFlowers = [
+      [31, 151, "#fff0b1"], [52, 168, "#f6d9ee"], [105, 153, "#f4e89a"],
+      [145, 143, "#ffffff"], [180, 167, "#f2d3a4"], [216, 151, "#ffe79a"],
+      [270, 171, "#ffd5e8"], [300, 158, "#fff0ac"]
+    ];
+    meadowFlowers.forEach(([x, y, color], i) => {
+      p(x, y, 2, 2, color);
+      p(x + 2, y + 1, 2, 2, color);
+      p(x + 1, y + 3, 1, 4, "#557d40");
+      if (i % 2 === 0) p(x - 1, y + 1, 1, 2, "#d9e99d");
+    });
 
   } else if (theme === "forest") {
     // 森林：前後の枝・葉・光点を増やして、木立の奥行きを強化。
@@ -4438,9 +4909,30 @@ function drawHero(time) {
   const capeFoldSwing = Math.round(Math.sin(time / 160 + 2.25) * 2);
 
   let swordPhase = 0;
+  let attackOffsetX = 0;
+  let attackOffsetY = 0;
   if (attack > 0) {
     const elapsed = 1 - attack;
-    swordPhase = Math.min(1, elapsed * 1.9);
+    // Wind-up: sink and pull slightly back to the lower-left.
+    // Slash: drive right immediately, then settle back to the standing pose.
+    if (elapsed < 0.18) {
+      const t = elapsed / 0.18;
+      attackOffsetX = Math.round(-4 * t);
+      attackOffsetY = Math.round(3 * t);
+      swordPhase = 0;
+    } else if (elapsed < 0.56) {
+      const t = (elapsed - 0.18) / 0.38;
+      attackOffsetX = Math.round(-4 + 14 * t);
+      attackOffsetY = Math.round(3 - 4 * t);
+      swordPhase = Math.min(1, t * 1.7);
+    } else if (elapsed < 0.84) {
+      const t = (elapsed - 0.56) / 0.28;
+      attackOffsetX = Math.round(10 * (1 - t));
+      attackOffsetY = Math.round(-1 * (1 - t));
+      swordPhase = 1;
+    } else {
+      swordPhase = 1;
+    }
   }
 
   const damageActive = battleState.playerDamageUntil > time;
@@ -4448,9 +4940,9 @@ function drawHero(time) {
     ? (Math.floor((battleState.playerDamageUntil - time) / 45) % 2 === 0 ? -2 : 2)
     : 0;
 
-  const x = 58 + damageShake;
-  // 立ち位置は固定。被ダメージ時だけ y / x に揺れを足す。
-  const y = 94 + damageShake;
+  const x = 58 + damageShake + attackOffsetX;
+  // Idle position is fixed; only a brief damage shake or attack lunge moves the sprite.
+  const y = 94 + damageShake + attackOffsetY;
   const upperY = y;
   const fx = x + 2;
 
@@ -5443,6 +5935,26 @@ function drawEnemy(time) {
     progress = Math.max(0, Math.min(1, (time - battleState.defeatStartedAt) / 1180));
   }
 
+  const enemyAttackActive = battleState.enemyAttack > 0 && !isDefeating;
+  const enemyAttackProgress = enemyAttackActive ? 1 - battleState.enemyAttack : 0;
+  let enemyAttackShiftX = 0;
+  let enemyAttackShiftY = 0;
+  if (enemyAttackActive) {
+    const p = enemyAttackProgress;
+    if (p < 0.18) {
+      enemyAttackShiftX = Math.round(4 * (p / 0.18));
+      enemyAttackShiftY = -Math.round(2 * (p / 0.18));
+    } else if (p < 0.48) {
+      const t = (p - 0.18) / 0.30;
+      enemyAttackShiftX = Math.round(4 - 34 * t);
+      enemyAttackShiftY = Math.round(-2 + 5 * t);
+    } else if (p < 0.78) {
+      const t = (p - 0.48) / 0.30;
+      enemyAttackShiftX = Math.round(-30 * (1 - t));
+      enemyAttackShiftY = Math.round(3 * (1 - t));
+    }
+  }
+
   // Three beats: a sharp recoil, a helpless wobble with a defeated face, then
   // a pixel burst as the enemy shrinks and dissolves out of the arena.
   let shiftX = 0, shiftY = 0, rotation = 0, squashX = 1, squashY = 1, alpha = 1;
@@ -5479,6 +5991,12 @@ function drawEnemy(time) {
     ctx.translate(235 + shiftX, groundY + shiftY);
     ctx.rotate(rotation);
     ctx.scale(squashX, squashY);
+    ctx.translate(-235, -groundY);
+  } else if (enemyAttackActive) {
+    ctx.translate(enemyAttackShiftX, enemyAttackShiftY);
+    // Small forward pitch gives the lunge weight while keeping the pixel sprite crisp.
+    ctx.translate(235, groundY);
+    ctx.rotate(-0.035 * Math.sin(enemyAttackProgress * Math.PI));
     ctx.translate(-235, -groundY);
   }
 
@@ -7989,6 +8507,61 @@ function resetScore() {
 }
 
 /* =========================================================
+   TITLE SCREEN BACKGROUND
+   ========================================================= */
+function stopTitleBackdropAnimation() {
+  if (titleBackdropAnimationId) {
+    cancelAnimationFrame(titleBackdropAnimationId);
+    titleBackdropAnimationId = 0;
+  }
+}
+
+function startTitleBackdropRandomized(pickNewTheme = false) {
+  const titleCanvas = document.getElementById("titleStageBackground");
+  if (!titleCanvas) return;
+
+  if (pickNewTheme || !titleBackdropTheme) {
+    const choices = TITLE_BACKDROP_THEMES.filter(theme => theme !== titleBackdropTheme);
+    const pool = choices.length ? choices : TITLE_BACKDROP_THEMES;
+    titleBackdropTheme = pool[Math.floor(Math.random() * pool.length)];
+    titleCanvas.dataset.theme = titleBackdropTheme;
+  }
+
+  stopTitleBackdropAnimation();
+  const titleCtx = titleCanvas.getContext("2d");
+  if (!titleCtx) return;
+  titleCanvas.width = 960;
+  titleCanvas.height = 540;
+  titleCtx.imageSmoothingEnabled = false;
+  let lastDraw = -100;
+
+  const render = time => {
+    if (currentScreen !== "homeScreen" || !document.querySelector("#homeScreen.active")) {
+      titleBackdropAnimationId = 0;
+      return;
+    }
+    // 30 fps is sufficient for background twinkles and avoids burning CPU.
+    if (time - lastDraw >= 33) {
+      titleCtx.setTransform(3, 0, 0, 3, 0, 0);
+      titleCtx.clearRect(0, 0, 320, 180);
+      titleCtx.imageSmoothingEnabled = false;
+      const previousCtx = ctx;
+      ctx = titleCtx;
+      try {
+        drawStageBackground(titleBackdropTheme, time, 320, 180, false);
+        drawBackgroundSparkles(titleBackdropTheme, time, 320, 180);
+        drawStageAccentSparkles(titleBackdropTheme, time, 320, 180);
+      } finally {
+        ctx = previousCtx;
+      }
+      lastDraw = time;
+    }
+    titleBackdropAnimationId = requestAnimationFrame(render);
+  };
+  titleBackdropAnimationId = requestAnimationFrame(render);
+}
+
+/* =========================================================
    EVENTS
    ========================================================= */
 
@@ -7996,6 +8569,8 @@ document.addEventListener(
   "DOMContentLoaded",
   () => {
     loadData();
+    document.body.classList.add("title-screen-active");
+    startTitleBackdropRandomized(true);
 
     activeStages = stages.map(stage => ({ ...stage }));
     renderStats();
@@ -8094,13 +8669,9 @@ document.addEventListener(
 
     /* score */
 
-    if ($("#resetScoreBtn")) {
-      $("#resetScoreBtn")
-        .addEventListener(
-          "click",
-          resetScore
-        );
-    }
+    [$("#resetScoreBtn"), $("#resetScoreBtnSecondary")].filter(Boolean).forEach(button => {
+      button.addEventListener("click", resetScore);
+    });
 
     /* flashcard */
 
