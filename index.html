@@ -150,7 +150,10 @@
   <section id="quizScreen" class="screen">
 
     <div class="quiz-top">
-      <button class="back-btn" data-screen="homeScreen">← HOME</button>
+      <div class="quiz-top-left-controls">
+        <button class="back-btn" data-screen="homeScreen">← HOME</button>
+        <button id="orientationToggle" class="orientation-toggle" type="button" aria-label="画面の向きを切り替え" aria-pressed="false">↻ 横向き</button>
+      </div>
 
       <div class="question-progress">
         <span id="questionNumber">01</span>
