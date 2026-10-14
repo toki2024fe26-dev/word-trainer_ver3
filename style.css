@@ -1657,7 +1657,7 @@ body.battle-active #quizScreen {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
-  background: #15192b;
+  background: transparent !important;
 }
 body.battle-active .quiz-top {
   position: absolute;
@@ -2858,53 +2858,577 @@ body.title-screen-active { background: #101529; }
   }
 }
 
-/* Manual orientation switch for phones: rotate the game surface in-page so it
-   works even when the browser/device orientation lock cannot be controlled. */
-.orientation-toggle {
-  padding: 6px 9px;
-  color: rgba(255,255,255,.96);
-  background: rgba(21, 28, 47, .38);
-  border: 1px solid rgba(255,255,255,.38);
-  border-radius: 10px;
-  font: 10px monospace;
-  white-space: nowrap;
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-}
-.quiz-top-left-controls { display:flex; align-items:center; gap:6px; min-width:0; }
 
+/* v71: iPhone SE portrait alignment and quest menu backdrop polish */
 @media (max-width: 760px) and (orientation: portrait) {
-  body.battle-active.battle-manual-landscape #quizScreen {
-    width: 100dvh !important;
-    height: 100vw !important;
-    min-height: 0 !important;
-    inset: auto !important;
-    left: 100vw !important;
-    top: 0 !important;
-    transform: rotate(90deg);
-    transform-origin: top left;
+  body.battle-active .question-box {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    text-align: center !important;
   }
-  body.battle-active.battle-manual-landscape .battle-card {
-    width: 100%; height: 100%;
+  body.battle-active .question-label { justify-self: center !important; }
+  body.battle-active .question-word {
+    display: block !important;
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    text-align: center !important;
+    justify-self: stretch !important;
+    transform: none !important;
   }
-  body.battle-active.battle-manual-landscape .battle-visual-frame {
-    top: 50%;
-    width: min(100%, calc(100vw * 16 / 9));
-  }
-  body.battle-active.battle-manual-landscape .command-panel {
-    height: 46dvh;
-    max-height: 46dvh;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
+  body.battle-active .question-box::before,
+  body.battle-active .question-box::after { content: none !important; }
 }
-@media (max-width: 760px) and (orientation: landscape) {
-  body.battle-active.battle-manual-landscape #quizScreen {
-    width: 100dvh !important;
-    height: 100vw !important;
-    inset: auto !important;
-    left: 100vw !important;
-    top: 0 !important;
-    transform: rotate(90deg);
-    transform-origin: top left;
-  }
+
+/* Keep the quest-mode chooser visually continuous with the title hub. */
+#questMenuScreen.mode-menu-screen {
+  position: relative;
+  isolation: isolate;
+  width: 100%; max-width: none; min-height: 100vh; min-height: 100svh;
+  margin: 0; padding: clamp(24px, 5vh, 52px) clamp(16px, 4vw, 54px) 32px;
+  color: #f8f8ff; background: #18243a; overflow: hidden;
+}
+#questMenuScreen .quest-stage-background { z-index: -3; }
+#questMenuScreen .quest-backdrop-shade { z-index: -2; }
+#questMenuScreen .quest-pixel-frame { z-index: -1; }
+#questMenuScreen .screen-title,
+#questMenuScreen .mode-menu-intro,
+#questMenuScreen .mode-card-grid { width: min(980px, 100%); margin-left: auto; margin-right: auto; }
+#questMenuScreen .screen-title h2 { color: #fff; }
+#questMenuScreen .mode-menu-intro { color: rgba(238,241,255,.78); }
+#questMenuScreen .mode-detail-card {
+  position: relative; isolation: isolate; overflow: hidden;
+  text-align: center; align-items: center; color: #f8f8ff;
+  border: 1px solid rgba(224,238,255,.38); border-radius: 13px;
+  background: linear-gradient(145deg, rgba(240,248,255,.24), rgba(175,198,235,.09) 48%, rgba(19,27,51,.42));
+  box-shadow: 0 14px 34px rgba(0,0,0,.22), inset 0 1px rgba(255,255,255,.30);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+#questMenuScreen .mode-detail-card::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(120deg, rgba(255,255,255,.13), transparent 42%, rgba(115,164,255,.08));
+}
+#questMenuScreen .mode-detail-card:hover { transform: translateY(-3px); border-color: rgba(170,220,255,.72); }
+#questMenuScreen .mode-detail-card strong { color: #fff; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+#questMenuScreen .mode-detail-card small { color: rgba(245,248,255,.86); }
+#questMenuScreen .mode-detail-kicker { color: rgba(226,238,255,.78); }
+#questMenuScreen .mode-detail-action { color: #ffe2a1; }
+#questMenuScreen .quest-detail-card, #questMenuScreen .weak-detail-card { background: linear-gradient(145deg, rgba(240,248,255,.24), rgba(175,198,235,.09) 48%, rgba(19,27,51,.42)); }
+#questMenuScreen .mode-detail-card strong {
+  font-size: clamp(20px, 2.5vw, 25px);
+  line-height: 1.5;
+  text-align: center;
+  width: 100%;
+}
+#questMenuScreen .mode-detail-card .mode-detail-kicker,
+#questMenuScreen .mode-detail-card small,
+#questMenuScreen .mode-detail-action { text-align: center; width: 100%; }
+@media (max-width: 600px) {
+  #questMenuScreen.mode-menu-screen { padding: 20px 14px 26px; }
+  #questMenuScreen .mode-card-grid { gap: 10px; }
+  #questMenuScreen .mode-detail-card { padding: 15px 10px; min-height: 190px; }
+  #questMenuScreen .mode-detail-card strong { font-size: clamp(17px, 4.7vw, 21px); }
+}
+
+
+/* QUEST MODE shares the title screen's stage backdrop and glass styling. */
+.mode-menu-screen {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  min-height: 100svh;
+  margin: 0;
+  padding: clamp(30px, 5vh, 58px) clamp(16px, 4vw, 54px) 30px;
+  overflow: hidden;
+  color: #f8f8ff;
+  background: #18243a;
+}
+.mode-menu-screen > .title-stage-background {
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  image-rendering: pixelated;
+  transform: scale(1.015);
+}
+.mode-menu-screen > .quest-backdrop-shade {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  background:
+    radial-gradient(ellipse at 50% 20%, rgba(24,31,55,.16), rgba(10,14,30,.62) 74%),
+    linear-gradient(180deg, rgba(8,13,29,.42), rgba(13,18,38,.30) 40%, rgba(8,12,26,.78));
+  pointer-events: none;
+}
+.mode-menu-screen > .quest-pixel-frame {
+  position: absolute;
+  inset: 12px;
+  z-index: -1;
+  border: 1px solid rgba(232,242,255,.38);
+  box-shadow: inset 0 0 0 4px rgba(10,16,35,.12), 0 0 0 1px rgba(9,14,31,.24);
+  pointer-events: none;
+}
+.mode-menu-screen > :not(.title-stage-background):not(.quest-backdrop-shade):not(.quest-pixel-frame) {
+  position: relative;
+  z-index: 1;
+}
+.mode-menu-screen .screen-title h2,
+.mode-menu-screen .screen-title span,
+.mode-menu-screen .mode-menu-intro { color: rgba(248,248,255,.9); }
+.mode-menu-screen .mode-detail-card {
+  align-items: center;
+  text-align: center;
+  color: #f8f8ff;
+  border: 1px solid rgba(226,239,255,.42);
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(228,237,255,.30), rgba(77,103,151,.22) 55%, rgba(32,49,83,.38));
+  box-shadow: 0 12px 32px rgba(3,8,25,.22), inset 0 1px rgba(255,255,255,.22);
+  backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+}
+.mode-menu-screen .mode-detail-card strong { color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.38); }
+.mode-menu-screen .mode-detail-card small { color: rgba(248,248,255,.88); }
+.mode-menu-screen .mode-detail-kicker { color: #c8d7ee; }
+.mode-menu-screen .mode-detail-action { color: #ffe29a; }
+.mode-menu-screen .mode-detail-icon { color: #c7a5ff; }
+.mode-menu-screen .weak-detail-card .mode-detail-icon { color: #f08fbd; }
+.mode-menu-screen .back-btn { color: #d9d8f1; }
+@media (max-width: 700px) {
+  .mode-menu-screen { padding: max(30px, env(safe-area-inset-top)) 16px 24px; }
+  .mode-menu-screen .mode-card-grid { grid-template-columns: 1fr; gap: 14px; }
+  .mode-menu-screen .mode-detail-card { min-height: 190px; }
+}
+
+
+/* v76: battle backdrop covers the entire game viewport, including any margins. */
+body.battle-active #battleStageBackdrop {
+  display:block !important; position:fixed !important; inset:0 !important;
+  width:100vw !important; height:100vh !important; height:100dvh !important;
+  z-index:0 !important; pointer-events:none; image-rendering:pixelated;
+}
+body.battle-active #quizScreen { background: transparent !important; }
+body.battle-active .quiz-top-actions {
+  display:flex; align-items:center; gap:8px; pointer-events:auto;
+}
+body.battle-active .quiz-top-actions > * { pointer-events:auto; }
+body.battle-active .quiz-top .orientation-toggle-btn {
+  display:inline-flex; position:relative; inset:auto; z-index:41;
+  min-height:28px; padding:5px 9px; margin:0; white-space:nowrap;
+  color:#fff; background:rgba(18,25,45,.66); border:1px solid rgba(255,255,255,.42);
+  border-radius:10px; font:700 10px/1.2 monospace; letter-spacing:.02em;
+  box-shadow:0 3px 12px rgba(0,0,0,.2); backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px); cursor:pointer;
+}
+body.battle-active .battle-card { z-index:1; }
+.orientation-toggle-btn { display:none; }
+body.battle-active .orientation-toggle-btn { display:inline-flex; }
+
+
+/* v81: the battle backdrop canvas itself spans the entire quiz viewport.
+   This makes the red-circled side areas a continuation of the actual stage art
+   (mountains, grass, stream and sky), rather than a flat fallback color. */
+body.battle-active #quizScreen > .battle-stage-backdrop {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  z-index: 0;
+  pointer-events: none;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+
+/* v82: let the QUEST MODE stage art fill the full content viewport,
+   including the former white side gutters outside the centered main column. */
+body.quest-menu-active { background: #101529; }
+body.quest-menu-active main {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+body.quest-menu-active #questMenuScreen.active {
+  display: block;
+  width: 100% !important;
+  max-width: none !important;
+  min-height: calc(100vh - 110px);
+  min-height: calc(100dvh - 110px);
+  margin: 0 !important;
+  box-sizing: border-box;
+}
+body.quest-menu-active #questMenuScreen > .title-stage-background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+/* WORLD MAP STAGE SELECT v83 */
+.world-map-panel{border:2px solid #5a4c68;background:#222638;padding:12px;box-shadow:0 8px 0 rgba(25,22,37,.16);margin-bottom:14px;color:#f4ebd2}.world-map-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;font:800 11px monospace;letter-spacing:.12em;margin:0 0 10px}.world-map-heading span{font-size:15px;color:#f1d99b}.world-map-heading b{font-size:9px;color:#c7d3b0}.world-map-canvas{height:clamp(300px,48vw,470px);position:relative;overflow:hidden;border:3px solid #3c4b43;background:radial-gradient(ellipse at 15% 25%,#a0bd75 0 13%,transparent 14%),radial-gradient(ellipse at 48% 40%,#78965d 0 18%,transparent 19%),radial-gradient(ellipse at 80% 70%,#7c9a63 0 17%,transparent 18%),linear-gradient(145deg,#8fb16b,#78985e 45%,#9ab875);isolation:isolate}.world-map-canvas:before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(25deg,transparent 0 16px,rgba(242,225,157,.13) 17px 19px,transparent 20px 34px);opacity:.8}.map-river{position:absolute;z-index:1;width:130%;height:35px;background:#5fabc0;border:5px solid #b3d3c2;opacity:.85;border-left:0;border-right:0;transform:rotate(-24deg);left:-10%;top:23%;border-radius:50%}.river-two{top:78%;left:-12%;transform:rotate(19deg);height:22px}.map-forest{position:absolute;z-index:1;left:18%;top:12%;font-size:clamp(22px,5vw,42px);letter-spacing:-.25em;color:#31523a;text-shadow:4px 4px #5b7547;transform:rotate(-10deg)}.map-mountains{position:absolute;z-index:1;right:2%;top:5%;font-size:clamp(28px,6vw,54px);letter-spacing:-.3em;color:#657a79;text-shadow:5px 5px #d7d8c3,-3px 7px #425b5a}.map-coast{position:absolute;z-index:1;right:-2%;bottom:2%;font-size:clamp(30px,7vw,58px);letter-spacing:-.3em;color:#3f8fa7;transform:rotate(-12deg)}.map-path-svg{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none}.world-map-node{position:absolute;z-index:4;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;min-width:62px;padding:4px 5px;background:#354638;border:2px solid #e5d3a0;color:#fff6d7;box-shadow:0 3px 0 #28352d;font-family:monospace;cursor:pointer;transition:transform .15s,filter .15s}.world-map-node:hover,.world-map-node.selected{transform:translate(-50%,-50%) scale(1.12);z-index:6;border-color:#fff2ad;box-shadow:0 0 0 3px #f1d98d,0 4px 0 #28352d}.world-map-node.locked{filter:grayscale(.8);opacity:.7;background:#4d4c53}.world-map-node.cleared{background:#557b56;border-color:#d4efad}.map-node-icon{font-size:16px;line-height:1.1}.map-node-num{font-size:8px;color:#f4d994}.map-node-name{font-family:system-ui,sans-serif;font-size:10px;font-weight:800;white-space:nowrap;text-shadow:1px 1px #263127}.world-map-hero{position:absolute;z-index:7;transform:translate(-50%,-50%);width:25px;height:29px;display:grid;place-items:center;background:#f5d77e;color:#503b35;border:2px solid #fff0bd;box-shadow:0 0 0 3px rgba(255,227,139,.28);font-size:15px;transition:left .25s,top .25s;pointer-events:none}.map-legend{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;padding:10px 0 0;font:700 9px monospace;color:#d7d5c9}.world-stage-detail{display:grid;grid-template-columns:140px minmax(0,1fr) auto;align-items:center;gap:16px;padding:15px;background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(239,235,242,.97));border:1px solid #c9c0d2;box-shadow:0 8px 20px rgba(52,42,75,.08)}.world-stage-detail .stage-art{width:140px;height:104px}.world-stage-copy{min-width:0}.world-stage-copy h3{margin:3px 0 5px;font-size:18px;color:#3f3855}.world-stage-copy h3 span{font:800 10px monospace;color:#817991;margin-left:7px}.world-stage-copy p{font-size:11px;line-height:1.65;color:#6d6678;margin:0}.world-stage-detail .stage-start-btn{max-width:190px}.stage-art-graveyard{background:linear-gradient(#34384e 0 48%,#424054 49% 100%)}.stage-art-graveyard .stage-art-sun{background:#b4a6ce;box-shadow:0 0 14px #b7a4d7}.stage-art-graveyard .stage-art-mountain{background:#25293b;clip-path:polygon(0 100%,18% 65%,31% 82%,48% 34%,63% 80%,80% 45%,100% 100%)}.stage-art-graveyard .stage-art-ground{background:#282837}.stage-art-graveyard .stage-art-detail{width:9px;height:28px;bottom:11px;background:#88839a;box-shadow:18px 7px 0 #6e6a82,38px -3px 0 #9690a6,55px 5px 0 #6e6a82}.world-map-node.graveyard{background:#4d4059}.world-map-node.graveyard.selected{border-color:#d8c3ff}
+@media(max-width:700px){.world-map-panel{padding:8px}.world-map-heading{font-size:9px}.world-map-heading span{font-size:12px}.world-map-canvas{height:350px}.world-map-node{min-width:46px;padding:3px}.map-node-name{font-size:8px}.map-node-icon{font-size:13px}.world-map-hero{width:20px;height:23px;font-size:12px}.world-stage-detail{grid-template-columns:82px minmax(0,1fr);gap:10px;padding:11px}.world-stage-detail .stage-art{width:82px;height:78px;grid-row:1}.world-stage-copy h3{font-size:15px}.world-stage-copy h3 span{display:block;margin:3px 0 0}.world-stage-copy p{font-size:10px}.world-stage-detail .stage-start-btn{grid-column:1/-1;max-width:none;width:100%}.map-legend{gap:9px;font-size:8px}}
+
+/* v84: stage details are revealed only after a map node is tapped/clicked */
+.stage-detail-hint{margin-top:14px;padding:16px 12px;text-align:center;background:rgba(34,38,54,.92);border:1px dashed #b9a87a;color:#f4ebd2;font-size:12px;line-height:1.6;box-shadow:0 5px 0 rgba(25,22,37,.12)}
+.world-map-node{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.world-map-node:focus-visible{outline:3px solid #fff2ad;outline-offset:4px}
+@media(max-width:700px){.stage-detail-hint{font-size:11px;padding:14px 10px}}
+
+/* v85: keep the stage-select experience within one viewport */
+@media (min-width: 701px) {
+  main:has(#stageSelectScreen.active) { padding-top: 12px; padding-bottom: 12px; }
+  #stageSelectScreen.active { min-height: calc(100svh - 24px); display: flex; flex-direction: column; }
+  #stageSelectScreen .screen-title { margin-bottom: 8px; }
+  #stageSelectScreen .stage-select-intro { margin-bottom: 10px; }
+  #stageSelectScreen .stage-select-list { flex: 1; min-height: 0; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .9fr); align-items: stretch; gap: 14px; }
+  #stageSelectScreen .world-map-panel { margin-bottom: 0; padding: 10px; display: flex; flex-direction: column; }
+  #stageSelectScreen .world-map-canvas { flex: 1; min-height: 250px; height: auto; max-height: calc(100svh - 245px); }
+  #stageSelectScreen .world-stage-detail { align-self: stretch; align-content: center; grid-template-columns: minmax(100px, 34%) minmax(0, 1fr); gap: 12px; padding: 14px; }
+  #stageSelectScreen .world-stage-detail .stage-art { grid-row: 1 / span 2; width: 100%; height: 130px; }
+  #stageSelectScreen .world-stage-detail .stage-start-btn { grid-column: 1 / -1; max-width: none; width: 100%; }
+  #stageSelectScreen .stage-detail-hint { align-self: stretch; display: grid; place-items: center; margin-top: 0; }
+}
+@media (max-width: 700px) {
+  main:has(#stageSelectScreen.active) { width: calc(100% - 20px); padding-top: 8px; padding-bottom: 8px; }
+  #stageSelectScreen.active { min-height: calc(100svh - 16px); display: flex; flex-direction: column; }
+  #stageSelectScreen .screen-title { margin-bottom: 5px; gap: 8px; }
+  #stageSelectScreen .screen-title h2 { font-size: 20px; }
+  #stageSelectScreen .screen-title > div > span { font-size: 9px; }
+  #stageSelectScreen .stage-select-intro { margin-bottom: 6px; padding: 7px 9px; font-size: 10px; }
+  #stageSelectScreen .stage-select-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 7px; }
+  #stageSelectScreen .world-map-panel { padding: 6px; margin-bottom: 0; }
+  #stageSelectScreen .world-map-heading { margin-bottom: 5px; }
+  #stageSelectScreen .world-map-canvas { height: clamp(190px, 32svh, 290px); min-height: 0; }
+  #stageSelectScreen .map-legend { padding-top: 5px; }
+  #stageSelectScreen .world-stage-detail { flex: 1; min-height: 0; grid-template-columns: 64px minmax(0, 1fr); gap: 7px; padding: 7px; }
+  #stageSelectScreen .world-stage-detail .stage-art { width: 64px; height: 58px; }
+  #stageSelectScreen .world-stage-copy h3 { font-size: 13px; margin: 0 0 3px; }
+  #stageSelectScreen .world-stage-copy h3 span { display: inline; margin-left: 4px; font-size: 8px; }
+  #stageSelectScreen .world-stage-copy p { font-size: 9px; line-height: 1.35; }
+  #stageSelectScreen .world-stage-detail .stage-start-btn { grid-column: 1 / -1; padding: 8px; margin-top: 2px; }
+  #stageSelectScreen .stage-detail-hint { margin-top: 0; padding: 10px 8px; font-size: 10px; }
+}
+@media (max-height: 700px) and (max-width: 700px) {
+  #stageSelectScreen .world-map-canvas { height: 27svh; }
+  #stageSelectScreen .world-stage-detail .stage-art { height: 44px; }
+  #stageSelectScreen .world-stage-copy p { font-size: 8px; }
+}
+
+/* v86: one persistent world map; stage information floats over the map */
+#stageSelectScreen .stage-select-list { display:block; }
+#stageSelectScreen .world-map-panel { margin:0; }
+#stageSelectScreen .world-map-canvas { position:relative; }
+#stageSelectScreen .map-detail-overlay {
+  position:absolute; z-index:12; left:50%; top:50%; transform:translate(-50%,-50%);
+  width:min(92%, 680px); max-height:90%; overflow:auto; box-sizing:border-box;
+  grid-template-columns:100px minmax(0,1fr); gap:10px; padding:16px;
+  border:2px solid #f0d58a; border-radius:3px;
+  background:rgba(250,247,235,.97); box-shadow:0 0 0 999px rgba(20,25,28,.28), 0 8px 0 rgba(25,22,37,.28);
+}
+#stageSelectScreen .map-detail-overlay .stage-art { grid-row:1; width:100%; height:90px; }
+#stageSelectScreen .map-detail-overlay .world-stage-copy h3 { font-size:16px; }
+#stageSelectScreen .map-detail-overlay .world-stage-copy p { font-size:11px; }
+#stageSelectScreen .map-detail-overlay .stage-start-btn { grid-column:1/-1; max-width:none; width:100%; }
+#stageSelectScreen .map-detail-close { position:absolute; right:5px; top:5px; z-index:2; width:30px; height:30px; border:1px solid #776b81; background:#373047; color:#fff4d3; font-size:23px; line-height:1; cursor:pointer; }
+#stageSelectScreen .map-detail-overlay .world-stage-copy { padding-right:20px; }
+@media(max-width:700px) {
+  #stageSelectScreen .world-map-canvas { height:clamp(260px,62svh,520px); }
+  #stageSelectScreen .map-detail-overlay { width:94%; padding:12px 9px 9px; grid-template-columns:66px minmax(0,1fr); gap:7px; }
+  #stageSelectScreen .map-detail-overlay .stage-art { width:66px; height:58px; }
+  #stageSelectScreen .map-detail-overlay .world-stage-copy h3 { font-size:13px; }
+  #stageSelectScreen .map-detail-overlay .world-stage-copy h3 span { display:block; margin:2px 0; }
+  #stageSelectScreen .map-detail-overlay .world-stage-copy p { font-size:10px; line-height:1.35; }
+  #stageSelectScreen .map-detail-overlay .stage-enemy-line { flex-wrap:wrap; gap:3px; font-size:9px; }
+  #stageSelectScreen .map-detail-overlay .stage-start-btn { padding:9px 6px; font-size:11px; }
+}
+@media(max-height:650px) and (max-width:700px) {
+  #stageSelectScreen .world-map-canvas { height:55svh; }
+  #stageSelectScreen .map-detail-overlay { max-height:94%; }
+}
+
+/* v87: vivid fantasy map + glassmorphism stage information overlay */
+#stageSelectScreen .world-map-panel {
+  background:linear-gradient(145deg,#18243b,#30264c 55%,#1b3948);
+  border:1px solid rgba(166,220,255,.5);
+  box-shadow:0 10px 30px rgba(7,12,30,.35), inset 0 1px rgba(255,255,255,.14);
+}
+#stageSelectScreen .world-map-heading span {
+  color:#ffe89b;
+  text-shadow:0 0 12px rgba(255,210,100,.35);
+}
+#stageSelectScreen .world-map-heading b { color:#9ff4db; }
+#stageSelectScreen .world-map-canvas {
+  border:2px solid rgba(208,241,255,.8);
+  border-radius:12px;
+  background:
+    radial-gradient(ellipse at 16% 18%,rgba(255,223,112,.95) 0 2%,transparent 2.5%),
+    radial-gradient(ellipse at 21% 22%,#78d89a 0 12%,#3da978 12.5% 16%,transparent 16.5%),
+    radial-gradient(ellipse at 49% 43%,#ffd56f 0 8%,#ed9e61 8.5% 13%,transparent 13.5%),
+    radial-gradient(ellipse at 74% 20%,#c6b5ff 0 8%,#8d83d5 8.5% 13%,transparent 13.5%),
+    radial-gradient(ellipse at 78% 77%,#7ee5e5 0 10%,#328bb1 10.5% 15%,transparent 15.5%),
+    radial-gradient(ellipse at 28% 80%,#e6a8ef 0 7%,#a968ca 7.5% 12%,transparent 12.5%),
+    radial-gradient(ellipse at 52% 83%,#a4dc75 0 10%,#4c9a69 10.5% 15%,transparent 15.5%),
+    linear-gradient(145deg,#65c9b1 0%,#58b8a3 25%,#82c96d 46%,#d5bb75 64%,#6eb5c5 82%,#477eb8 100%);
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.12),inset 0 0 35px rgba(15,42,74,.18);
+}
+#stageSelectScreen .world-map-canvas:before {
+  background:
+    repeating-linear-gradient(0deg,transparent 0 21px,rgba(255,255,255,.09) 22px 23px,transparent 24px 42px),
+    repeating-linear-gradient(90deg,transparent 0 21px,rgba(255,255,255,.07) 22px 23px,transparent 24px 42px),
+    radial-gradient(ellipse at 50% 50%,transparent 30%,rgba(16,36,65,.25) 100%);
+  opacity:.9;
+}
+#stageSelectScreen .map-river {
+  background:linear-gradient(90deg,#7de7f1,#4fb8ee,#9cf4f1);
+  border-color:rgba(231,255,255,.85);
+  box-shadow:0 0 14px rgba(81,212,255,.4);
+}
+#stageSelectScreen .river-two { background:linear-gradient(90deg,#75dff0,#358fe3,#9df8ee); }
+#stageSelectScreen .map-forest { color:#174f3c; text-shadow:3px 3px #75d66c,6px 6px rgba(17,76,58,.55); filter:drop-shadow(0 2px 4px rgba(15,51,40,.28)); }
+#stageSelectScreen .map-mountains { color:#d6d9f7; text-shadow:4px 4px #8b91c5,-3px 7px #5a6d92; }
+#stageSelectScreen .map-coast { color:#e0ffff; text-shadow:0 0 8px #5ce3ef; }
+#stageSelectScreen .map-path-svg polyline { stroke:#fff2a1; stroke-width:2.2; filter:drop-shadow(0 0 2px rgba(87,55,28,.9)); }
+#stageSelectScreen .world-map-node {
+  border:2px solid rgba(255,255,255,.9);
+  border-radius:9px;
+  background:linear-gradient(145deg,#ffcf69,#f08c63);
+  color:#34254b;
+  box-shadow:0 3px 0 rgba(54,41,83,.75),0 0 0 2px rgba(255,255,255,.2),0 0 14px rgba(255,225,128,.28);
+}
+#stageSelectScreen .world-map-node:nth-of-type(odd) { background:linear-gradient(145deg,#8cf0d0,#36b6b0); }
+#stageSelectScreen .world-map-node:nth-of-type(even) { background:linear-gradient(145deg,#ffd87d,#f19d62); }
+#stageSelectScreen .world-map-node .map-node-num { color:#493b6c; }
+#stageSelectScreen .world-map-node .map-node-name { color:#fff; text-shadow:1px 2px 2px rgba(31,37,67,.9); }
+#stageSelectScreen .world-map-node:hover,
+#stageSelectScreen .world-map-node.selected {
+  border-color:#fff9c7;
+  box-shadow:0 0 0 3px rgba(255,245,166,.65),0 0 22px rgba(255,232,120,.8),0 4px 0 rgba(54,41,83,.8);
+  filter:saturate(1.2) brightness(1.08);
+}
+#stageSelectScreen .world-map-node.locked { background:linear-gradient(145deg,#8d94a9,#59667d); filter:saturate(.45); }
+#stageSelectScreen .world-map-node.cleared { background:linear-gradient(145deg,#d4ff8a,#56d69a); border-color:#f2ffcb; }
+#stageSelectScreen .world-map-node.graveyard { background:linear-gradient(145deg,#d4b5ff,#806bd0); }
+#stageSelectScreen .world-map-hero {
+  border-radius:7px;
+  background:linear-gradient(145deg,#fff6a5,#ffad5d);
+  border-color:#fff;
+  box-shadow:0 0 0 3px rgba(255,235,151,.4),0 0 18px rgba(255,214,97,.85);
+}
+#stageSelectScreen .map-legend { color:#e3f7ff; }
+#stageSelectScreen .map-detail-overlay {
+  border:1px solid rgba(255,255,255,.72);
+  border-radius:20px;
+  background:linear-gradient(135deg,rgba(255,255,255,.32),rgba(226,240,255,.17));
+  -webkit-backdrop-filter:blur(18px) saturate(165%);
+  backdrop-filter:blur(18px) saturate(165%);
+  box-shadow:0 18px 50px rgba(12,18,44,.32),inset 0 1px 0 rgba(255,255,255,.75),inset 0 -1px 0 rgba(255,255,255,.18);
+  color:#fff;
+}
+#stageSelectScreen .map-detail-overlay:before {
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(125deg,rgba(255,255,255,.25),transparent 42%,rgba(160,218,255,.12));
+}
+#stageSelectScreen .map-detail-overlay .world-stage-copy,
+#stageSelectScreen .map-detail-overlay .stage-art,
+#stageSelectScreen .map-detail-overlay .stage-start-btn,
+#stageSelectScreen .map-detail-overlay .map-detail-close { position:relative; z-index:1; }
+#stageSelectScreen .map-detail-overlay .world-stage-copy h3 { color:#fff; text-shadow:0 2px 8px rgba(25,30,65,.7); }
+#stageSelectScreen .map-detail-overlay .world-stage-copy h3 span,
+#stageSelectScreen .map-detail-overlay .world-stage-copy p,
+#stageSelectScreen .map-detail-overlay .stage-select-kicker { color:#f1f7ff; text-shadow:0 1px 5px rgba(20,27,55,.75); }
+#stageSelectScreen .map-detail-overlay .stage-enemy-line span { color:#fff; text-shadow:0 1px 4px rgba(20,27,55,.85); }
+#stageSelectScreen .map-detail-overlay .stage-enemy-line .boss-label { color:#ffe59a; }
+#stageSelectScreen .map-detail-close {
+  border:1px solid rgba(255,255,255,.75);
+  border-radius:50%;
+  background:rgba(35,43,76,.38);
+  -webkit-backdrop-filter:blur(10px);
+  backdrop-filter:blur(10px);
+  box-shadow:inset 0 1px rgba(255,255,255,.35);
+}
+#stageSelectScreen .map-detail-overlay .stage-start-btn {
+  border:1px solid rgba(255,255,255,.75);
+  border-radius:12px;
+  background:linear-gradient(135deg,rgba(255,224,125,.95),rgba(255,153,103,.94));
+  color:#3b2855;
+  box-shadow:0 5px 0 rgba(81,52,103,.6),inset 0 1px rgba(255,255,255,.75);
+}
+#stageSelectScreen .map-detail-overlay .stage-start-btn:disabled { background:rgba(120,126,149,.6); color:#e7eaf5; box-shadow:none; }
+@media (prefers-reduced-transparency: reduce) {
+  #stageSelectScreen .map-detail-overlay { background:rgba(44,53,86,.96); }
+}
+
+/* v88: more natural, topographic fantasy-world map */
+#stageSelectScreen .world-map-canvas {
+  border: 2px solid rgba(222,239,221,.9);
+  border-radius: 10px;
+  background-color:#6b9d66;
+  background-image:
+    radial-gradient(ellipse at 14% 18%, rgba(199,210,130,.94) 0 5%, rgba(125,164,92,.9) 11%, transparent 20%),
+    radial-gradient(ellipse at 28% 26%, rgba(52,111,69,.95) 0 3%, rgba(73,132,76,.8) 10%, transparent 18%),
+    radial-gradient(ellipse at 49% 65%, rgba(191,180,105,.96) 0 5%, rgba(155,170,98,.88) 13%, transparent 24%),
+    radial-gradient(ellipse at 68% 20%, rgba(150,144,156,.95) 0 4%, rgba(110,126,130,.95) 10%, rgba(84,112,107,.7) 17%, transparent 23%),
+    radial-gradient(ellipse at 82% 73%, rgba(74,135,153,.95) 0 6%, rgba(90,159,171,.8) 12%, transparent 21%),
+    radial-gradient(ellipse at 24% 84%, rgba(143,177,98,.95) 0 7%, transparent 19%),
+    radial-gradient(ellipse at 90% 8%, rgba(181,205,145,.8) 0 6%, transparent 18%),
+    linear-gradient(153deg,#8eb77c 0%,#699d6b 25%,#9eaf76 43%,#c5b779 58%,#729b76 74%,#477f91 100%);
+  box-shadow: inset 0 0 28px rgba(25,51,46,.32), inset 0 0 0 1px rgba(255,255,255,.22);
+}
+#stageSelectScreen .world-map-canvas:before {
+  content:"";
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+  background-image:
+    repeating-radial-gradient(ellipse at 17% 26%, transparent 0 10px, rgba(230,226,170,.16) 11px 12px, transparent 13px 22px),
+    repeating-radial-gradient(ellipse at 69% 23%, transparent 0 8px, rgba(240,236,213,.18) 9px 10px, transparent 11px 19px),
+    repeating-radial-gradient(ellipse at 52% 72%, transparent 0 12px, rgba(69,105,65,.17) 13px 14px, transparent 15px 26px),
+    repeating-linear-gradient(23deg, transparent 0 31px, rgba(245,235,193,.055) 32px 33px, transparent 34px 51px),
+    radial-gradient(ellipse at center,transparent 48%,rgba(21,47,49,.25) 100%);
+  opacity:1;
+}
+#stageSelectScreen .world-map-canvas:after {
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none; opacity:.8;
+  background:
+    radial-gradient(ellipse at 7% 43%,rgba(40,93,58,.5) 0 2%,transparent 2.5%),
+    radial-gradient(ellipse at 12% 47%,rgba(42,96,60,.6) 0 3%,transparent 3.5%),
+    radial-gradient(ellipse at 19% 39%,rgba(48,104,61,.55) 0 2.5%,transparent 3%),
+    radial-gradient(ellipse at 35% 17%,rgba(50,105,64,.48) 0 2%,transparent 2.5%),
+    radial-gradient(ellipse at 38% 22%,rgba(50,105,64,.52) 0 3%,transparent 3.5%),
+    radial-gradient(ellipse at 57% 52%,rgba(224,205,143,.48) 0 2%,transparent 2.5%),
+    radial-gradient(ellipse at 59% 56%,rgba(224,205,143,.4) 0 2%,transparent 2.5%),
+    radial-gradient(ellipse at 86% 42%,rgba(40,86,61,.48) 0 2%,transparent 2.5%),
+    radial-gradient(ellipse at 91% 46%,rgba(40,86,61,.55) 0 3%,transparent 3.5%);
+}
+#stageSelectScreen .map-river {
+  z-index:2; height:27px; opacity:.95;
+  background:linear-gradient(180deg,rgba(203,239,220,.92) 0%,#75c6d2 18%,#4b9eaf 48%,#347f9b 72%,rgba(190,225,209,.95) 100%);
+  border:0; border-top:2px solid rgba(218,242,220,.75); border-bottom:2px solid rgba(36,97,106,.55);
+  box-shadow:0 2px 4px rgba(27,69,68,.3), inset 0 2px 2px rgba(255,255,255,.3);
+  filter:saturate(.82);
+}
+#stageSelectScreen .river-two { height:19px; }
+#stageSelectScreen .map-forest {
+  z-index:2; font-size:clamp(20px,4vw,36px); letter-spacing:-.34em;
+  color:#28583b; opacity:.9;
+  text-shadow:2px 3px 0 #527c4d,4px 5px 0 rgba(26,69,48,.45);
+  filter:drop-shadow(0 2px 2px rgba(30,65,45,.3));
+}
+#stageSelectScreen .map-mountains {
+  z-index:2; color:#d8d8c9;
+  text-shadow:2px 2px 0 #8e9a91,5px 5px 0 #647b78,8px 8px 0 rgba(53,81,76,.75),-2px 5px 0 #b7c1b1;
+  filter:drop-shadow(0 3px 3px rgba(34,55,51,.42));
+}
+#stageSelectScreen .map-coast { z-index:2; color:#c5e6df; text-shadow:0 2px 0 #4f9ca8,0 0 8px rgba(91,202,212,.5); }
+#stageSelectScreen .map-path-svg { z-index:3; }
+#stageSelectScreen .map-path-svg polyline { stroke:#f3df9a; stroke-width:2; stroke-dasharray:5 3; filter:drop-shadow(0 1px 2px rgba(45,57,42,.8)); }
+#stageSelectScreen .world-map-node { z-index:4; }
+#stageSelectScreen .world-map-hero { z-index:7; }
+@media (max-width:700px) {
+  #stageSelectScreen .map-forest { font-size:22px; }
+  #stageSelectScreen .map-mountains { font-size:31px; }
+}
+
+/* v89: richly layered, restrained-color pixel-art terrain atlas */
+#stageSelectScreen .world-map-canvas {
+  background:#71856e;
+  border:3px solid #3b5047;
+  box-shadow:inset 0 0 0 2px rgba(218,207,168,.32), inset 0 0 34px rgba(18,35,31,.3);
+  image-rendering:pixelated;
+}
+#stageSelectScreen .world-map-canvas::before {
+  content:""; position:absolute; inset:0; z-index:1; pointer-events:none;
+  background:linear-gradient(180deg,rgba(18,34,35,.08),transparent 22%,transparent 78%,rgba(19,36,29,.2)),
+    repeating-linear-gradient(0deg,rgba(20,39,35,.08) 0 1px,transparent 1px 5px);
+  mix-blend-mode:multiply; opacity:.55;
+}
+#stageSelectScreen .terrain-atlas {
+  position:absolute; inset:0; z-index:0; width:100%; height:100%;
+  display:block; pointer-events:none; image-rendering:pixelated;
+  filter:saturate(.68) contrast(1.04);
+}
+#stageSelectScreen .map-path-svg { z-index:2; }
+#stageSelectScreen .world-map-node {
+  background:#334d40; border-color:#c9bc93;
+  box-shadow:0 3px 0 #26382f, 0 5px 9px rgba(20,32,27,.28);
+}
+#stageSelectScreen .world-map-node:hover,
+#stageSelectScreen .world-map-node.selected {
+  border-color:#f0dfad; box-shadow:0 0 0 2px rgba(226,207,149,.7),0 4px 0 #26382f,0 6px 12px rgba(15,28,24,.36);
+}
+#stageSelectScreen .world-map-node.locked { background:#464b48; }
+#stageSelectScreen .world-map-node.cleared { background:#526f50; }
+#stageSelectScreen .map-node-name { text-shadow:1px 1px #24362d, -1px 0 #24362d; }
+#stageSelectScreen .world-map-hero { box-shadow:0 0 0 3px rgba(230,211,154,.32),0 3px 8px rgba(12,26,21,.4); }
+#stageSelectScreen .map-legend { color:#d4d1bf; text-shadow:1px 1px #293c34; }
+
+/* v90: dimensional terrain lighting + colorful pixel-magic glints */
+#stageSelectScreen .world-map-canvas {
+  isolation:isolate;
+  box-shadow: inset 0 0 0 2px rgba(231,240,211,.38), inset 0 -18px 35px rgba(15,32,28,.34), 0 8px 0 #2d4037, 0 14px 24px rgba(9,20,18,.34);
+}
+#stageSelectScreen .terrain-atlas { filter:saturate(.9) contrast(1.1) drop-shadow(0 2px 0 rgba(19,36,30,.2)); }
+#stageSelectScreen .world-map-canvas::before {
+  background:linear-gradient(135deg,rgba(255,247,202,.16),transparent 25%,transparent 65%,rgba(13,28,25,.26)),
+    repeating-linear-gradient(0deg,rgba(20,39,35,.07) 0 1px,transparent 1px 5px);
+  mix-blend-mode:soft-light; opacity:.9;
+}
+#stageSelectScreen .map-magic-glints { position:absolute; inset:0; z-index:3; pointer-events:none; overflow:hidden; }
+#stageSelectScreen .map-magic-glints i {
+  position:absolute; width:5px; height:5px; background:#fff7c4; opacity:0;
+  box-shadow:0 0 0 1px rgba(255,255,255,.5),0 0 5px 2px rgba(255,226,119,.8),0 0 12px 4px rgba(106,238,230,.38);
+  clip-path:polygon(40% 0,60% 0,60% 35%,100% 40%,100% 60%,60% 60%,60% 100%,40% 100%,40% 60%,0 60%,0 40%,40% 35%);
+  animation:mapGlint 3.6s steps(5,end) infinite;
+}
+#stageSelectScreen .map-magic-glints i:nth-child(1){left:8%;top:21%;animation-delay:-.4s}
+#stageSelectScreen .map-magic-glints i:nth-child(2){left:19%;top:43%;background:#a8fff0;animation-delay:-2.1s}
+#stageSelectScreen .map-magic-glints i:nth-child(3){left:31%;top:17%;animation-delay:-1.3s}
+#stageSelectScreen .map-magic-glints i:nth-child(4){left:39%;top:55%;background:#ffd2f4;animation-delay:-2.8s}
+#stageSelectScreen .map-magic-glints i:nth-child(5){left:48%;top:33%;animation-delay:-.9s}
+#stageSelectScreen .map-magic-glints i:nth-child(6){left:57%;top:18%;background:#b6d8ff;animation-delay:-2.4s}
+#stageSelectScreen .map-magic-glints i:nth-child(7){left:64%;top:68%;animation-delay:-1.8s}
+#stageSelectScreen .map-magic-glints i:nth-child(8){left:73%;top:27%;background:#ffc7a0;animation-delay:-.2s}
+#stageSelectScreen .map-magic-glints i:nth-child(9){left:82%;top:48%;animation-delay:-3.1s}
+#stageSelectScreen .map-magic-glints i:nth-child(10){left:91%;top:16%;background:#b8fff0;animation-delay:-1.1s}
+#stageSelectScreen .map-magic-glints i:nth-child(11){left:14%;top:76%;animation-delay:-2.7s}
+#stageSelectScreen .map-magic-glints i:nth-child(12){left:27%;top:65%;background:#ffe0a0;animation-delay:-1.6s}
+#stageSelectScreen .map-magic-glints i:nth-child(13){left:51%;top:80%;animation-delay:-.7s}
+#stageSelectScreen .map-magic-glints i:nth-child(14){left:69%;top:43%;background:#e2c4ff;animation-delay:-2.2s}
+#stageSelectScreen .map-magic-glints i:nth-child(15){left:87%;top:73%;animation-delay:-1.4s}
+#stageSelectScreen .map-magic-glints i:nth-child(16){left:43%;top:8%;background:#b6d8ff;animation-delay:-3.3s}
+#stageSelectScreen .map-magic-glints i:nth-child(17){left:5%;top:54%;animation-delay:-2s}
+#stageSelectScreen .map-magic-glints i:nth-child(18){left:76%;top:84%;background:#ffc7e7;animation-delay:-.5s}
+@keyframes mapGlint {
+  0%,12%,100% {opacity:0;transform:translateY(5px) scale(.35) rotate(0deg)}
+  25% {opacity:.95;transform:translateY(0) scale(1.25) rotate(45deg)}
+  42% {opacity:.35;transform:translateY(-7px) scale(.65) rotate(90deg)}
+  60% {opacity:.9;transform:translateY(-11px) scale(1) rotate(135deg)}
+  78% {opacity:0;transform:translateY(-16px) scale(.3) rotate(180deg)}
+}
+#stageSelectScreen .world-map-node { transform:translate(-50%,-50%); transition:filter .25s, box-shadow .25s; }
+#stageSelectScreen .world-map-node:hover, #stageSelectScreen .world-map-node.selected {
+  filter:brightness(1.18) saturate(1.25);
+  box-shadow:0 0 0 2px rgba(255,244,180,.8),0 0 13px 4px rgba(115,239,228,.42),0 4px 0 #26382f,0 8px 14px rgba(15,28,24,.4);
+}
+#stageSelectScreen .world-map-node.unlocked .map-node-icon { animation:mapNodeGleam 2.4s steps(4,end) infinite; }
+#stageSelectScreen .world-map-hero { animation:heroHover 2.2s ease-in-out infinite; filter:drop-shadow(0 0 5px rgba(255,231,132,.7)); }
+#stageSelectScreen .map-path-svg polyline { stroke:#ffe9a2; filter:drop-shadow(0 0 3px rgba(255,223,124,.7)); animation:pathGlow 3s ease-in-out infinite; }
+@keyframes mapNodeGleam {0%,100%{filter:brightness(1);text-shadow:0 0 0 transparent}50%{filter:brightness(1.5);text-shadow:0 0 8px #ffe8a2}}
+@keyframes heroHover {0%,100%{translate:0 0}50%{translate:0 -5px}}
+@keyframes pathGlow {0%,100%{opacity:.72}50%{opacity:1;filter:drop-shadow(0 0 6px rgba(255,223,124,.95))}}
+@media (prefers-reduced-motion:reduce) {
+  #stageSelectScreen .map-magic-glints i,#stageSelectScreen .world-map-hero,#stageSelectScreen .world-map-node.unlocked .map-node-icon,#stageSelectScreen .map-path-svg polyline {animation:none!important}
 }
