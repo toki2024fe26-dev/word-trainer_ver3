@@ -852,6 +852,7 @@ const stages = [
   { id:"forest", name:"FOREST", jp:"森林", theme:"forest", description:"深い森の奥へ。木々の間から古代の魔物が姿を現す。", enemies:["forest-mandraga","shadow-bat"], boss:"world-tree-tortoise" },
   { id:"beach", name:"BEACH", jp:"砂浜", theme:"beach", description:"青い海と白い砂浜。潮騒の向こうに海の魔物が潜む。", enemies:["coral-shrimp","tidal-fish"], boss:"poseidon" },
   { id:"volcano", name:"VOLCANO", jp:"火山", theme:"volcano", description:"灼熱の大地。溶岩が流れる火口へ進め。", enemies:["magma-snail","firebird"], boss:"astral-dragon" },
+  { id:"graveyard", name:"GRAVEYARD", jp:"黄昏の墓場", theme:"graveyard", description:"朽ちた墓石と枯れ木が並ぶ、青紫の霧に包まれた墓場。火山の先に眠る不死者たちを退け、次の山脈への道を開け。", enemies:["phantom","skeleton-knight"], boss:"snow-goddess" },
   { id:"snowfield", name:"SNOWFIELD", jp:"雪原", theme:"snowfield", description:"吹雪に閉ざされた白銀の世界。亡霊の気配が漂う。", enemies:["phantom","snowman-devil"], boss:"snow-goddess" },
   { id:"ruins", name:"ANCIENT RUINS", jp:"遺跡", theme:"ruins", description:"世界の秘密が眠る古代遺跡。最後の魔王との決戦の地。", enemies:["iron-golem","phantom"], boss:"void-emperor", final:true }
 ];
@@ -877,6 +878,7 @@ let weakWords = {};
 let questRuns = 0;
 let activeStages = [];
 let selectedStageIndex = 0;
+let stageDetailVisible = false;
 let clearedStages = {};
 
 let currentScreen = "homeScreen";
@@ -884,6 +886,8 @@ let currentScreen = "homeScreen";
 // Title screen reuses each stage's existing 2D pixel-art background.
 let titleBackdropAnimationId = 0;
 let titleBackdropTheme = "";
+let questBackdropAnimationId = 0;
+let questBackdropTheme = "";
 const TITLE_BACKDROP_THEMES = ["grassland", "forest", "beach", "volcano", "snowfield", "ruins"];
 
 
@@ -1381,10 +1385,17 @@ function showScreen(id) {
 
   currentScreen = id;
   document.body.classList.toggle("title-screen-active", id === "homeScreen");
+  document.body.classList.toggle("quest-menu-active", id === "questMenuScreen");
   if (id === "homeScreen") {
+    stopQuestBackdropAnimation();
     startTitleBackdropRandomized(previousScreen !== "homeScreen");
   } else {
     stopTitleBackdropAnimation();
+    if (id === "questMenuScreen") {
+      startQuestBackdropAnimation(previousScreen !== "questMenuScreen");
+    } else {
+      stopQuestBackdropAnimation();
+    }
   }
   document.body.classList.toggle("battle-active", id === "quizScreen");
   document.body.classList.remove("battle-action-correct", "battle-action-wrong");
@@ -1618,48 +1629,95 @@ function closeExtraModal() {
 function renderStageSelect() {
   const list = $("#stageSelectList");
   if (!list) return;
-
-  list.innerHTML = stages.map((stage, index) => {
-    const cleared = !!clearedStages[index];
-    const unlocked = index === 0 || !!clearedStages[index - 1];
-    const first = MONSTERS.find(m => m.id === stage.enemies[0]);
-    const second = MONSTERS.find(m => m.id === stage.enemies[1]);
-    const boss = MONSTERS.find(m => m.id === stage.boss);
-    const stateClass = cleared ? "cleared" : (unlocked ? "unlocked" : "locked");
-    const buttonLabel = cleared ? "RETRY" : (unlocked ? "START" : "LOCKED");
-
-    return `<article class="stage-select-card ${stateClass}${stage.final ? " final-stage" : ""}">
-      <div class="stage-art stage-art-${stage.theme}" aria-hidden="true">
-        <span class="stage-art-sun"></span>
-        <span class="stage-art-mountain"></span>
-        <span class="stage-art-ground"></span>
-        <span class="stage-art-detail"></span>
+  const positions = [ [12,68], [29,39], [45,66], [61,35], [73,66], [82,35], [91,60] ];
+  const selected = Math.max(0, Math.min(selectedStageIndex, stages.length - 1));
+  const stage = stages[selected];
+  const cleared = !!clearedStages[selected];
+  const unlocked = selected === 0 || !!clearedStages[selected - 1];
+  const first = MONSTERS.find(m => m.id === stage.enemies[0]);
+  const second = MONSTERS.find(m => m.id === stage.enemies[1]);
+  const boss = MONSTERS.find(m => m.id === stage.boss);
+  list.innerHTML = `
+    <div class="world-map-panel">
+      <div class="world-map-heading"><span>THE SEVEN REALMS</span><b>${Object.values(clearedStages).filter(Boolean).length} / ${stages.length} REALMS CLEARED</b></div>
+      <div class="world-map-canvas" role="group" aria-label="ワールドマップ">
+        <svg class="terrain-atlas" viewBox="0 0 1000 600" preserveAspectRatio="none" aria-hidden="true" shape-rendering="crispEdges">
+          <defs>
+            <pattern id="terrainGrain" width="24" height="20" patternUnits="userSpaceOnUse"><rect x="3" y="4" width="3" height="2" fill="#d5c49a" opacity=".26"/><rect x="15" y="12" width="4" height="2" fill="#253f37" opacity=".24"/><rect x="8" y="17" width="2" height="2" fill="#e4d7b3" opacity=".22"/></pattern>
+            <pattern id="rockHatch" width="16" height="14" patternUnits="userSpaceOnUse"><path d="M2 2h5v3H4v4H1M11 8h4v3h-3v3" fill="none" stroke="#a5a89a" stroke-width="2" opacity=".42"/></pattern>
+          </defs>
+          <rect width="1000" height="600" fill="#829875"/><path d="M0 0H1000V105L930 126 852 104 780 151 707 130 644 178 574 157 509 198 431 174 354 214 285 190 213 231 143 207 70 247 0 231Z" fill="#71856e"/>
+          <path d="M0 390L82 356 152 388 224 344 304 376 380 330 457 358 535 316 620 350 698 311 772 345 854 301 925 331 1000 292V600H0Z" fill="#687e62"/>
+          <path d="M0 0H1000V600H0Z" fill="url(#terrainGrain)"/>
+          <!-- distant serrated mountain chain -->
+          <path d="M430 205L472 145 497 166 532 91 555 121 594 47 618 82 649 26 676 76 702 51 731 105 760 80 793 143 830 119 866 171 904 147 947 202 1000 183V292L940 275 884 300 823 269 767 302 713 278 659 309 599 283 540 309 486 276 430 290Z" fill="#586d70"/>
+          <path d="M532 91L555 121 594 47 618 82 649 26 676 76 702 51 731 105 760 80 793 143 830 119 866 171 904 147 947 202 912 187 899 204 866 184 844 205 817 168 790 188 762 137 736 151 703 92 682 124 652 67 631 124 606 93 590 146 568 128 551 160 522 143Z" fill="#aeb7b0"/>
+          <path d="M594 47L618 82 649 26 676 76 702 51 731 105 710 92 698 105 678 82 664 100 650 65 636 105 618 82 608 105Z" fill="#d5d8cc"/>
+          <path d="M430 205L472 145 497 166 532 91 555 121 568 128 551 160 522 143 510 186 487 183 470 221Z" fill="url(#rockHatch)"/>
+          <path d="M715 281L756 239 785 255 818 210 841 234 871 206 898 249 926 235 959 271 1000 257V337L946 326 904 349 857 329 811 354 763 330 715 345Z" fill="#7d8580"/>
+          <path d="M0 300L50 268 83 286 122 245 148 266 179 231 211 263 244 249 278 289 316 273 347 315 386 304 421 344 450 338V415L399 403 344 431 289 409 235 438 183 416 125 450 73 426 0 451Z" fill="#6f826b"/>
+          <!-- old-growth forest blocks and individual stepped crowns -->
+          <g fill="#304f43"><path d="M20 145h24v-18h18v18h14v21H20Z M67 188h18v-20h21v20h17v22H67Z M112 135h23v-19h17v19h18v23h-58Z M163 182h19v-17h21v17h15v22h-55Z M214 129h20v-21h21v21h17v23h-58Z M270 168h22v-20h18v20h18v24h-58Z M320 128h20v-18h21v18h17v22h-58Z M363 180h22v-20h18v20h18v24h-58Z"/></g>
+          <g fill="#45684d"><path d="M28 140h13v-10h10v15h-7v12H28Z M77 183h13v-11h10v16h-7v12H77Z M122 130h13v-11h10v15h-7v12h-16Z M173 177h13v-10h10v15h-7v12h-16Z M224 124h13v-12h10v16h-7v12h-16Z M280 163h13v-11h10v16h-7v12h-16Z M330 123h13v-10h10v15h-7v12h-16Z M373 175h13v-11h10v16h-7v12h-16Z"/></g>
+          <g fill="#3b5947"><path d="M20 145h7v-8h5v12h-4v12h-8Z M112 135h8v-9h5v12h-4v13h-9Z M214 129h8v-9h5v12h-4v13h-9Z M320 128h8v-8h5v12h-4v12h-9Z"/></g>
+          <!-- central highland and layered foothills -->
+          <path d="M342 300L390 269 423 285 461 250 493 274 530 238 560 260 597 226 629 257 660 239 699 280 732 270 767 307 800 300 839 338 882 331 918 367 1000 350V470L932 452 871 475 810 452 750 482 691 459 633 487 570 464 511 493 452 469 394 488 337 458 280 475 236 446 285 402Z" fill="#7e9071"/>
+          <path d="M342 300L390 269 423 285 461 250 493 274 530 238 560 260 597 226 629 257 660 239 699 280 732 270 767 307 800 300 839 338 882 331 918 367 883 353 861 367 836 349 808 361 782 329 758 340 733 300 706 311 681 268 662 282 640 255 620 283 598 247 576 276 557 258 538 280 513 259 491 295 467 273 444 309 419 294 397 319 374 306Z" fill="#98a084"/>
+          <path d="M0 465L68 433 120 457 176 423 229 451 284 424 338 454 393 431 450 464 508 443 566 473 622 448 681 476 739 451 796 478 853 452 912 479 1000 448V600H0Z" fill="#536f59"/>
+          <!-- ravines, rock faces, sediment bands -->
+          <path d="M386 322l18 8-16 20 22 14-19 25 23 18-10 18-30-26 13-23-19-18Z M690 305l19 12-15 21 17 18-14 23-19-16 11-19-14-15Z M843 350l18 9-12 19 16 16-14 21-20-17 10-18-13-13Z" fill="#586f60"/>
+          <path d="M405 343l10 8-9 12 13 12-8 12 M706 321l9 8-8 12 10 11-8 13 M858 367l8 8-7 11 9 10" fill="none" stroke="#b1ae91" stroke-width="4" opacity=".7"/>
+          <!-- lake and braided river flowing toward the coast -->
+          <path d="M73 349l27-17 30 5 17 17-7 19-29 11-30-8-15-14Z" fill="#547f82" stroke="#b2c4b0" stroke-width="5"/>
+          <path d="M110 359C172 328 196 358 232 342S293 330 323 359 369 385 402 359 451 337 479 362 528 401 567 374 619 349 654 378 711 412 745 386 805 350 846 382 906 411 1000 390" fill="none" stroke="#b2c8b5" stroke-width="22"/>
+          <path d="M110 359C172 328 196 358 232 342S293 330 323 359 369 385 402 359 451 337 479 362 528 401 567 374 619 349 654 378 711 412 745 386 805 350 846 382 906 411 1000 390" fill="none" stroke="#537f91" stroke-width="13"/>
+          <path d="M110 355C172 324 196 354 232 338S293 326 323 355 369 381 402 355 451 333 479 358 528 397 567 370 619 345 654 374 711 408 745 382 805 346 846 378 906 407 1000 386" fill="none" stroke="#8bb2b4" stroke-width="3" opacity=".85"/>
+          <!-- coastal shelf and sea cliffs -->
+          <path d="M825 0H1000V600H900L921 566 895 540 918 514 891 486 917 459 897 434 921 409 901 382 930 358 915 329 946 306 931 275 963 250 946 217 976 188 960 151 1000 126V0Z" fill="#4e7983"/>
+          <path d="M842 0H1000V600H928L948 566 921 540 944 514 917 486 943 459 923 434 947 409 927 382 956 358 941 329 972 306 957 275 989 250 972 217 1000 188V0Z" fill="#608f94"/>
+          <path d="M866 0H1000V600H957L978 566 950 540 973 514 946 486 972 459 952 434 976 409 956 382 985 358 970 329 1000 306V0Z" fill="#7da3a0"/>
+          <path d="M834 30l25 18-13 19 24 20-15 19 24 21-15 19 23 22-15 19 22 21-15 19 22 21-15 19 23 21-16 19 22 21-16 20 22 20-16 20 23 20-16 21 22 20-15 21 20 18" fill="none" stroke="#b0b9a1" stroke-width="5" opacity=".7"/>
+          <!-- old roads, switchbacks and ancient ruins -->
+          <path d="M40 500l42-12 15 10 22-13 16 11 21-10 17 12 23-9 15 11 23-9 18 10 20-9 17 12 22-8 19 12 19-7" fill="none" stroke="#c4b48a" stroke-width="5" opacity=".6"/>
+          <g fill="#b8ad8d" opacity=".9"><rect x="144" y="472" width="9" height="9"/><rect x="158" y="465" width="7" height="14"/><rect x="170" y="472" width="10" height="7"/><rect x="745" y="172" width="9" height="12"/><rect x="758" y="166" width="7" height="18"/><rect x="770" y="173" width="10" height="7"/></g>
+          <!-- pixel contours and terrain marks -->
+          <g fill="none" stroke="#c4c4a2" stroke-width="2" opacity=".45"><path d="M10 274l38-18 28 7 31-17 32 9 29-16 35 12 31-11 24 14"/><path d="M15 285l36-16 28 7 31-16 31 9 29-15 33 11 31-10 22 12"/><path d="M304 500l28-15 26 8 26-16 29 7 23-14 29 9 23-12 25 11"/><path d="M325 516l27-14 26 7 26-15 28 7 23-13 29 8 23-11 25 10"/></g>
+          <g fill="#c0b68d" opacity=".72"><rect x="82" y="305" width="8" height="3"/><rect x="93" y="298" width="5" height="3"/><rect x="263" y="307" width="7" height="3"/><rect x="279" y="300" width="4" height="3"/><rect x="519" y="425" width="8" height="3"/><rect x="532" y="417" width="5" height="3"/><rect x="613" y="511" width="7" height="3"/><rect x="627" y="505" width="5" height="3"/><rect x="742" y="432" width="7" height="3"/><rect x="754" y="425" width="4" height="3"/></g>
+          <!-- raised terrain facets: stepped light-facing ridges and deep cast shadows -->
+          <g shape-rendering="crispEdges" stroke-linejoin="miter">
+            <path d="M472 145L497 166 532 91 555 121 568 128 551 160 522 143 510 186 487 183Z" fill="#748783" opacity=".92"/>
+            <path d="M594 47L618 82 649 26 676 76 664 100 650 65 636 105 618 82 608 105Z" fill="#e2e4d7"/>
+            <path d="M649 26L676 76 702 51 731 105 710 92 698 105 678 82 664 100Z" fill="#f0eee0" opacity=".88"/>
+            <path d="M597 226L629 257 660 239 699 280 732 270 767 307 800 300 839 338 882 331 918 367 883 353 861 367 836 349 808 361 782 329 758 340 733 300 706 311 681 268 662 282 640 255 620 283Z" fill="#617965" opacity=".7"/>
+            <path d="M342 300L390 269 423 285 461 250 493 274 530 238 560 260 597 226 629 257 660 239 699 280 732 270 767 307 800 300 839 338 882 331 918 367 883 353 861 367 836 349 808 361 782 329 758 340 733 300 706 311 681 268 662 282 640 255 620 283 598 247 576 276 557 258 538 280 513 259 491 295 467 273 444 309 419 294 397 319 374 306Z" fill="none" stroke="#c0c4a0" stroke-width="3" opacity=".65"/>
+            <path d="M0 465L68 433 120 457 176 423 229 451 284 424 338 454 393 431 450 464 508 443 566 473 622 448 681 476 739 451 796 478 853 452 912 479 1000 448V600H0Z" fill="#344f45" opacity=".26"/>
+            <path d="M73 349l27-17 30 5 17 17-7 19-29 11-30-8-15-14Z" fill="#9fc4b6" opacity=".45"/>
+            <path d="M825 0H1000V600H900L921 566 895 540 918 514 891 486 917 459 897 434 921 409 901 382 930 358 915 329 946 306 931 275 963 250 946 217 976 188 960 151 1000 126V0Z" fill="none" stroke="#b7c9b2" stroke-width="7" opacity=".55"/>
+          </g>
+        </svg>
+        <svg class="map-path-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="12,68 29,39 45,66 61,35 73,66 82,35 91,60" fill="none" stroke="#d6bd82" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 1"/></svg>
+        <div class="map-magic-glints" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        ${stages.map((item,i)=>{const [x,y]=positions[i];const clear=!!clearedStages[i];const open=i===0||!!clearedStages[i-1];return `<button class="world-map-node ${i===selected?'selected':''} ${clear?'cleared':''} ${open?'unlocked':'locked'} ${item.theme}" data-map-stage="${i}" style="left:${x}%;top:${y}%" aria-label="${i+1} ${escapeHtml(item.jp)}${open?'':' 未開放'}"><span class="map-node-icon">${clear?'✓':open?'✦':'🔒'}</span><span class="map-node-num">${String(i+1).padStart(2,'0')}</span><span class="map-node-name">${escapeHtml(item.jp)}</span></button>`}).join('')}
+        <div class="world-map-hero" style="left:${positions[selected][0]}%;top:calc(${positions[selected][1]}% - 35px)" aria-label="主人公の現在地">⚔</div>
+        ${stageDetailVisible ? `<article class="world-stage-detail map-detail-overlay ${stage.final?'final-stage':''}" role="dialog" aria-label="${escapeHtml(stage.jp)}の説明">
+          <button type="button" class="map-detail-close" id="worldMapClose" aria-label="説明パネルを閉じる">×</button>
+          <div class="stage-art stage-art-${stage.theme}" aria-hidden="true"><span class="stage-art-sun"></span><span class="stage-art-mountain"></span><span class="stage-art-ground"></span><span class="stage-art-detail"></span></div>
+          <div class="world-stage-copy"><div class="stage-select-kicker">${stage.final?'FINAL DESTINATION':`DESTINATION ${String(selected+1).padStart(2,'0')}`}${cleared?' · CLEAR':''}</div><h3>${escapeHtml(stage.jp)} <span>${escapeHtml(stage.name)}</span></h3><p>${escapeHtml(stage.description)}</p><div class="stage-enemy-line"><span>${escapeHtml(first?.name||'?')}</span><b>→</b><span>${escapeHtml(second?.name||'?')}</span><b>→</b><span class="boss-label">★ ${escapeHtml(boss?.name||'BOSS')}</span></div></div>
+          <button class="stage-start-btn" id="worldMapStart" ${unlocked?'':'disabled'}>${cleared?'RETRY':unlocked?'このエリアへ出発 →':'前のエリアを攻略して開放'}</button>
+        </article>` : ''}
       </div>
-      <div class="stage-select-number">${String(index + 1).padStart(2, "0")}</div>
-      <div class="stage-select-main">
-        <div class="stage-select-kicker">${stage.final ? "FINAL STAGE" : `STAGE ${index + 1}`}${cleared ? " · CLEAR" : ""}</div>
-        <h3>${escapeHtml(stage.jp)} <span>${escapeHtml(stage.name)}</span></h3>
-        <p>${escapeHtml(stage.description)}</p>
-        <div class="stage-enemy-line"><span>${escapeHtml(first?.name || "?")}</span><b>→</b><span>${escapeHtml(second?.name || "?")}</span><b>→</b><span class="boss-label">★ ${escapeHtml(boss?.name || "BOSS")}</span></div>
-      </div>
-      <button class="stage-start-btn" data-stage-index="${index}" ${unlocked ? "" : "disabled"}>${buttonLabel}</button>
-    </article>`;
-  }).join("");
-
-  list.querySelectorAll("[data-stage-index]").forEach(button => {
-    button.addEventListener("click", () => {
-      const index = Number(button.dataset.stageIndex);
-      const unlocked = index === 0 || !!clearedStages[index - 1];
-      if (!unlocked) return;
-      selectedStageIndex = index;
-      playButtonSound();
-      startQuest(selectedStageIndex);
-    });
-  });
+      <div class="map-legend"><span>✦ 選択可能</span><span>✓ 攻略済み</span><span>🔒 未開放</span></div>
+    </div>`;
+  list.querySelectorAll('[data-map-stage]').forEach(button => button.addEventListener('click',()=>{const i=Number(button.dataset.mapStage);selectedStageIndex=i;stageDetailVisible=true;playButtonSound();renderStageSelect();}));
+  const close = $('#worldMapClose');
+  if (close) close.addEventListener('click',()=>{stageDetailVisible=false;playButtonSound();renderStageSelect();});
+  const start = $('#worldMapStart');
+  if(start) start.addEventListener('click',()=>{if(!(selected===0||clearedStages[selected-1]))return;playButtonSound();startQuest(selected);});
 }
 
 function openStageSelect() {
   playButtonSound();
+  stageDetailVisible = false;
   renderStageSelect();
   showScreen("stageSelectScreen");
 }
@@ -2833,27 +2891,18 @@ function syncBattleOrientation() {
   // Keep the game upright in portrait orientation. The layout is compacted with
   // CSS instead of rotating the game surface, so the player never needs to turn
   // the phone sideways or scroll during a quest.
-  document.body.classList.remove("battle-rotated-landscape");
   document.body.classList.remove("battle-needs-landscape");
+  const orientationButton = document.getElementById("orientationToggleBtn");
+  if (orientationButton) {
+    const rotated = document.body.classList.contains("battle-rotated-landscape");
+    orientationButton.setAttribute("aria-pressed", String(rotated));
+    orientationButton.textContent = rotated ? "↻ 縦向き表示" : "↻ 横向き表示";
+  }
   if (inBattle && questionTimerPausedForOrientation) {
     resumeQuestionTimerAfterOrientation();
   }
   battleMarginGeometryDirty = true;
   requestAnimationFrame(() => updateBattleMarginGeometry(true));
-}
-
-// Manual in-page orientation toggle. This does not depend on browser/device
-// orientation-lock support; it rotates the game surface and keeps the UI usable.
-const orientationToggle = document.getElementById("orientationToggle");
-if (orientationToggle) {
-  orientationToggle.addEventListener("click", () => {
-    const enabled = document.body.classList.toggle("battle-manual-landscape");
-    orientationToggle.setAttribute("aria-pressed", String(enabled));
-    orientationToggle.textContent = enabled ? "↻ 縦向き" : "↻ 横向き";
-    orientationToggle.setAttribute("aria-label", enabled ? "縦向き表示に戻す" : "横向き表示に切り替え");
-    battleMarginGeometryDirty = true;
-    requestAnimationFrame(() => updateBattleMarginGeometry(true));
-  });
 }
 
 window.addEventListener("resize", syncBattleOrientation, { passive: true });
@@ -3624,7 +3673,37 @@ const backgroundCtx = backgroundCanvas
   ? backgroundCanvas.getContext("2d")
   : null;
 
-// Responsive background extension: mirrors only the outer background strips
+// Full-screen animated stage backdrop. Uses the same renderer/sparkle passes as the title screen.
+const battleStageBackdropCanvas = document.getElementById("battleStageBackdrop");
+const battleStageBackdropCtx = battleStageBackdropCanvas ? battleStageBackdropCanvas.getContext("2d") : null;
+function drawFullViewportBattleBackdrop(theme, time) {
+  if (!battleStageBackdropCanvas || !battleStageBackdropCtx || !document.body.classList.contains("battle-active")) return;
+  const rect = document.getElementById("quizScreen").getBoundingClientRect();
+  const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 2));
+  const w = Math.max(1, Math.round(rect.width * dpr));
+  const h = Math.max(1, Math.round(rect.height * dpr));
+  if (battleStageBackdropCanvas.width !== w || battleStageBackdropCanvas.height !== h) {
+    battleStageBackdropCanvas.width = w; battleStageBackdropCanvas.height = h;
+  }
+  const c = battleStageBackdropCtx;
+  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.imageSmoothingEnabled = false; c.clearRect(0, 0, rect.width, rect.height);
+  const previousCtx = ctx; ctx = c;
+  try {
+    // Render the stage at a viewport-matched logical size to eliminate all uncovered margins.
+    const logicalW = Math.max(1, Math.ceil(rect.width / 3));
+    const logicalH = Math.max(1, Math.ceil(rect.height / 3));
+    // The pixel-art stage renderer is authored on a 320×180 logical canvas.
+    // Scale that complete scene to the viewport canvas so no unpainted strips
+    // remain at either side on ultrawide / portrait-fallback layouts.
+    c.setTransform(3 * dpr * (logicalW / BATTLE_LOGICAL_WIDTH), 0, 0,
+      3 * dpr * (logicalH / BATTLE_LOGICAL_HEIGHT), 0, 0);
+    drawStageBackground(theme, time, BATTLE_LOGICAL_WIDTH, BATTLE_LOGICAL_HEIGHT, false);
+    drawBackgroundSparkles(theme, time, BATTLE_LOGICAL_WIDTH, BATTLE_LOGICAL_HEIGHT);
+    drawStageAccentSparkles(theme, time, BATTLE_LOGICAL_WIDTH, BATTLE_LOGICAL_HEIGHT);
+  } finally { ctx = previousCtx; }
+}
+
+// Responsive background extension: animated stage artwork fills the viewport
 // behind the centered 16:9 battlefield. Sprites and the core field stay undistorted.
 const battlefieldExtensionCanvas = canvas
   ? document.createElement("canvas")
@@ -3737,51 +3816,25 @@ function drawBattlefieldExtension(theme) {
   extensionCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
   extensionCtx.clearRect(0, 0, hostW, hostH);
 
-  // Stage-colored gradient is a fallback under the extended edge strips.
-  const palette = BATTLE_MARGIN_PALETTES[theme] || BATTLE_MARGIN_PALETTES.grassland;
-  const base = extensionCtx.createLinearGradient(0, 0, 0, hostH);
-  base.addColorStop(0, palette.sky);
-  base.addColorStop(0.54, palette.mid);
-  base.addColorStop(1, palette.ground);
-  extensionCtx.fillStyle = base;
-  extensionCtx.fillRect(0, 0, hostW, hostH);
-
+  // Fill every area behind the contained 16:9 battle scene with the same
+  // animated stage artwork. Cover-crop the background only (no characters/UI),
+  // preserving its aspect ratio so the outer margins are never white.
   const sourceW = backgroundCanvas.width;
   const sourceH = backgroundCanvas.height;
-  const frameSourceW = Math.max(1, Math.min(sourceW, Math.ceil(sourceW * Math.max(gapLeft, gapRight) / frameW) + 2));
   extensionCtx.save();
-  // Keep the mirrored extension crisp and opaque. Blurring a clipped canvas edge
-  // creates a transparent fringe that can show up as a dark vertical seam.
   extensionCtx.filter = "none";
   extensionCtx.imageSmoothingEnabled = false;
-
-  // Left margin: mirror a narrow strip so its inner edge matches the field's left edge.
-  if (gapLeft > 0.5) {
-    extensionCtx.save();
-    extensionCtx.beginPath();
-    extensionCtx.rect(0, frameTop, gapLeft, frameH);
-    extensionCtx.clip();
-    extensionCtx.translate(gapLeft, frameTop);
-    extensionCtx.scale(-1, 1);
-    extensionCtx.drawImage(backgroundCanvas, 0, 0, frameSourceW, sourceH, 0, 0, gapLeft, frameH);
-    extensionCtx.restore();
+  const sourceAspect = sourceW / sourceH;
+  const hostAspect = hostW / hostH;
+  let sx = 0, sy = 0, sw = sourceW, sh = sourceH;
+  if (sourceAspect > hostAspect) {
+    sw = sourceH * hostAspect;
+    sx = (sourceW - sw) / 2;
+  } else {
+    sh = sourceW / hostAspect;
+    sy = (sourceH - sh) / 2;
   }
-
-  // Right margin: mirror a strip from the field's right edge.
-  if (gapRight > 0.5) {
-    extensionCtx.save();
-    extensionCtx.beginPath();
-    extensionCtx.rect(frameLeft + frameW, frameTop, gapRight, frameH);
-    extensionCtx.clip();
-    extensionCtx.translate(frameLeft + frameW, frameTop);
-    extensionCtx.scale(-1, 1);
-    extensionCtx.drawImage(
-      backgroundCanvas,
-      sourceW - frameSourceW, 0, frameSourceW, sourceH,
-      -gapRight, 0, gapRight, frameH
-    );
-    extensionCtx.restore();
-  }
+  extensionCtx.drawImage(backgroundCanvas, sx, sy, sw, sh, 0, 0, hostW, hostH);
 
   // Portrait stage: continue the actual stage's ground texture below the
   // original 16:9 scene, then fade that texture naturally into the HUD black.
@@ -4214,6 +4267,7 @@ function drawBattle(time) {
   // scene (including all characters) remains centered, top-anchored, and undistorted.
   drawBattlefieldExtension(backgroundTheme);
   drawBattlefieldSeamCover();
+  drawFullViewportBattleBackdrop(currentDefinition.theme || currentDefinition.id, time);
 
   /* ================= FOREGROUND ================= */
   ctx = mainCtx;
@@ -4470,14 +4524,18 @@ function drawStageBackground(theme, time, w, h, showStageLabel = true) {
 
   if (theme === "grassland") {
     // セレクト画面の明るい昼景をベースに、少しだけ空気遠近を追加。
-    sky("#b8d6e4", "#90b4c8");
+    sky("#70c8f5", "#b8e7ff");
     rect(0, 82, w, 48, "#86aa67");
     pixelPoly([[0,130],[0,92],[43,66],[80,91],[120,59],[160,90],[201,55],[243,91],[282,63],[320,94],[320,130]], "#72985c");
     pixelPoly([[0,130],[0,106],[39,84],[72,108],[112,77],[151,104],[191,78],[228,106],[268,81],[320,109],[320,130]], "#8fb572");
 
     // 昼らしさを出す明るい太陽と薄雲。
-    pixelSun(247,16,24,"#ffe8a6");
-    rect(252,13,14,2,"#fff1c2");
+    pixelSun(247,16,24,"#fff0a0");
+    rect(252,13,14,2,"#fffbe0");
+    // 晴天らしい小さな雲と日差しのハイライト。
+    rect(25,30,31,3,"#f4fbff"); rect(34,26,22,3,"#ffffff");
+    rect(91,41,28,3,"#eaf8ff"); rect(101,37,17,3,"#ffffff");
+    rect(183,25,24,2,"#f2fbff");
     rect(28,27,38,3,"#dcebf0");
     rect(39,23,20,3,"#e8f2f4");
     rect(90,38,31,3,"#d5e7ed");
@@ -4501,6 +4559,43 @@ function drawStageBackground(theme, time, w, h, showStageLabel = true) {
     rect(41,72,3,19,"#618850");
     rect(37,68,12,3,"#73955a");
     rect(50,78,3,14,"#5f834e");
+
+    // 山肌の露岩。遠景の稜線を壊さないよう、小さな面で控えめに追加。
+    pixelPoly([[112,79],[119,72],[126,77],[123,82],[117,81]], "#a2b58a");
+    pixelPoly([[194,72],[201,64],[208,69],[205,75],[199,76]], "#a8bb90");
+    rect(119,76,4,2,"#c0c9a0");
+    rect(201,68,3,2,"#c5d0a4");
+    rect(125,80,5,2,"#648b55");
+    rect(207,73,4,2,"#6c9257");
+
+    // 遠近のある草むらと葉のかたまり。左右で形・色を変えて単調さを抑える。
+    pixelPoly([[0,118],[8,109],[16,112],[22,105],[31,114],[27,124],[0,128]], "#668f4e");
+    pixelPoly([[286,119],[293,108],[300,112],[307,104],[317,113],[320,126],[290,128]], "#62884a");
+    pixelPoly([[4,116],[11,111],[17,115],[13,120],[7,121]], "#91b96a");
+    pixelPoly([[296,116],[303,110],[311,114],[307,120],[300,121]], "#9bc171");
+    rect(17,113,5,2,"#b0ca7a");
+    rect(288,116,4,2,"#b0ca7a");
+
+    // 細い小川。地面を横切るゆるいカーブと明暗の水面、石の縁で表現。
+    pixelPoly([[238,180],[245,169],[251,160],[248,151],[256,141],[264,132],[273,126],[281,129],[273,138],[265,146],[261,155],[258,165],[251,174],[248,180]], "#355e4c");
+    pixelPoly([[242,180],[249,169],[255,160],[252,151],[260,142],[268,134],[274,130],[277,132],[269,141],[263,149],[260,158],[254,168],[250,176],[248,180]], "#5ba9b0");
+    pixelPoly([[245,180],[251,169],[257,160],[255,152],[262,144],[269,137],[273,134],[270,141],[264,149],[262,158],[256,168],[252,177],[251,180]], "#83d0d0");
+    // 水面の小さなきらめき
+    rect(260,151,5,2,"#d0eee0");
+    rect(253,166,4,2,"#b6e6d9");
+    rect(267,139,3,2,"#d0eee0");
+    // 川辺の小石と湿った土
+    pixelPoly([[235,169],[240,165],[245,168],[243,173],[238,174]], "#8e9b75");
+    pixelPoly([[257,145],[261,141],[265,144],[263,148],[259,148]], "#a7a88a");
+    pixelPoly([[247,178],[252,175],[255,178],[253,180],[248,180]], "#b1ad86");
+    rect(239,168,3,2,"#c3c29a");
+    rect(260,143,2,2,"#d0cba3");
+    // 岸辺の葉と草。水に少しかぶせて自然な境界にする。
+    pixelPoly([[229,173],[232,165],[236,168],[239,162],[242,169],[239,177],[234,179]], "#3f7048");
+    pixelPoly([[263,153],[267,147],[270,151],[275,145],[277,153],[272,159],[266,159]], "#477849");
+    rect(233,168,4,2,"#9fc16a");
+    rect(269,151,4,2,"#a9c96e");
+    rect(228,177,7,2,"#729d52");
 
   } else if (theme === "forest") {
     sky("#617d82", "#3f625e");
@@ -8536,6 +8631,59 @@ function stopTitleBackdropAnimation() {
   }
 }
 
+function stopQuestBackdropAnimation() {
+  if (questBackdropAnimationId) {
+    cancelAnimationFrame(questBackdropAnimationId);
+    questBackdropAnimationId = 0;
+  }
+}
+
+// QUEST MODE uses the same stage renderer and sparkle passes as the title screen.
+// Keep this as a separate animation loop so the title screen itself remains unchanged.
+function startQuestBackdropAnimation(pickNewTheme = false) {
+  const canvas = document.getElementById("questStageBackground");
+  if (!canvas) return;
+
+  if (pickNewTheme || !questBackdropTheme) {
+    const choices = TITLE_BACKDROP_THEMES.filter(theme => theme !== questBackdropTheme);
+    const pool = choices.length ? choices : TITLE_BACKDROP_THEMES;
+    questBackdropTheme = pool[Math.floor(Math.random() * pool.length)];
+    canvas.dataset.theme = questBackdropTheme;
+  }
+
+  stopQuestBackdropAnimation();
+  const backdropCtx = canvas.getContext("2d");
+  if (!backdropCtx) return;
+  canvas.width = 960;
+  canvas.height = 540;
+  backdropCtx.imageSmoothingEnabled = false;
+  let lastDraw = -100;
+
+  const render = time => {
+    if (currentScreen !== "questMenuScreen" || !document.querySelector("#questMenuScreen.active")) {
+      questBackdropAnimationId = 0;
+      return;
+    }
+    if (time - lastDraw >= 33) {
+      backdropCtx.setTransform(3, 0, 0, 3, 0, 0);
+      backdropCtx.clearRect(0, 0, 320, 180);
+      backdropCtx.imageSmoothingEnabled = false;
+      const previousCtx = ctx;
+      ctx = backdropCtx;
+      try {
+        drawStageBackground(questBackdropTheme, time, 320, 180, false);
+        drawBackgroundSparkles(questBackdropTheme, time, 320, 180);
+        drawStageAccentSparkles(questBackdropTheme, time, 320, 180);
+      } finally {
+        ctx = previousCtx;
+      }
+      lastDraw = time;
+    }
+    questBackdropAnimationId = requestAnimationFrame(render);
+  };
+  questBackdropAnimationId = requestAnimationFrame(render);
+}
+
 function startTitleBackdropRandomized(pickNewTheme = false) {
   const titleCanvas = document.getElementById("titleStageBackground");
   if (!titleCanvas) return;
@@ -8589,6 +8737,15 @@ document.addEventListener(
   "DOMContentLoaded",
   () => {
     loadData();
+    const orientationButton = document.getElementById("orientationToggleBtn");
+    if (orientationButton) orientationButton.addEventListener("click", () => {
+      const nextRotated = !document.body.classList.contains("battle-rotated-landscape");
+      document.body.classList.toggle("battle-rotated-landscape", nextRotated);
+      orientationButton.setAttribute("aria-pressed", String(nextRotated));
+      orientationButton.textContent = nextRotated ? "↻ 縦向き表示" : "↻ 横向き表示";
+      battleMarginGeometryDirty = true;
+      requestAnimationFrame(() => updateBattleMarginGeometry(true));
+    });
     document.body.classList.add("title-screen-active");
     startTitleBackdropRandomized(true);
 
