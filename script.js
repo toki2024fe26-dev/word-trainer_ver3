@@ -2830,21 +2830,30 @@ function resumeQuestionTimerAfterOrientation() {
 
 function syncBattleOrientation() {
   const inBattle = currentScreen === "quizScreen";
-  const portraitPhone = window.matchMedia("(max-width: 760px) and (orientation: portrait)").matches;
-  // When the phone stays portrait because orientation lock is enabled, rotate
-  // the game surface itself into a landscape layout. This cannot rotate Safari's
-  // browser chrome or unlock iOS, but it keeps the game playable while the user
-  // holds the phone sideways.
-  const useLandscapeFallback = inBattle && portraitPhone;
-  document.body.classList.toggle("battle-rotated-landscape", useLandscapeFallback);
-  // The old blocking prompt would hide the field. Keep it off because the game
-  // now rotates itself; if an older state paused the timer, resume from remaining time.
+  // Keep the game upright in portrait orientation. The layout is compacted with
+  // CSS instead of rotating the game surface, so the player never needs to turn
+  // the phone sideways or scroll during a quest.
+  document.body.classList.remove("battle-rotated-landscape");
   document.body.classList.remove("battle-needs-landscape");
   if (inBattle && questionTimerPausedForOrientation) {
     resumeQuestionTimerAfterOrientation();
   }
   battleMarginGeometryDirty = true;
   requestAnimationFrame(() => updateBattleMarginGeometry(true));
+}
+
+// Manual in-page orientation toggle. This does not depend on browser/device
+// orientation-lock support; it rotates the game surface and keeps the UI usable.
+const orientationToggle = document.getElementById("orientationToggle");
+if (orientationToggle) {
+  orientationToggle.addEventListener("click", () => {
+    const enabled = document.body.classList.toggle("battle-manual-landscape");
+    orientationToggle.setAttribute("aria-pressed", String(enabled));
+    orientationToggle.textContent = enabled ? "↻ 縦向き" : "↻ 横向き";
+    orientationToggle.setAttribute("aria-label", enabled ? "縦向き表示に戻す" : "横向き表示に切り替え");
+    battleMarginGeometryDirty = true;
+    requestAnimationFrame(() => updateBattleMarginGeometry(true));
+  });
 }
 
 window.addEventListener("resize", syncBattleOrientation, { passive: true });
@@ -3774,20 +3783,31 @@ function drawBattlefieldExtension(theme) {
     extensionCtx.restore();
   }
 
-  // When the viewport is taller than 16:9, continue the ground below the field.
+  // Portrait stage: continue the actual stage's ground texture below the
+  // original 16:9 scene, then fade that texture naturally into the HUD black.
+  // This avoids a generic flat-color extension and never mirrors the scene.
   if (gapBottom > 0.5) {
-    const frameSourceH = Math.max(1, Math.min(sourceH, Math.ceil(sourceH * gapBottom / frameH) + 2));
     extensionCtx.save();
     extensionCtx.beginPath();
     extensionCtx.rect(0, frameBottom, hostW, gapBottom);
     extensionCtx.clip();
-    extensionCtx.translate(0, 2 * frameBottom + gapBottom);
-    extensionCtx.scale(1, -1);
-    extensionCtx.drawImage(
-      backgroundCanvas,
-      0, sourceH - frameSourceH, sourceW, frameSourceH,
-      0, frameBottom, hostW, gapBottom
-    );
+
+    // Extend a shallow strip from this stage's own background, preserving its
+    // pixel texture and palette rather than painting a generic gradient.
+    const textureStripH = Math.max(1, Math.round(sourceH * 0.14));
+    const textureStripY = Math.max(0, sourceH - textureStripH);
+    extensionCtx.imageSmoothingEnabled = false;
+    extensionCtx.drawImage(backgroundCanvas, 0, textureStripY, sourceW, textureStripH,
+      0, frameBottom, hostW, gapBottom);
+
+    const fade = extensionCtx.createLinearGradient(0, frameBottom, 0, hostH);
+    fade.addColorStop(0, 'rgba(0, 0, 0, 0.04)');
+    fade.addColorStop(0.22, 'rgba(0, 0, 0, 0.22)');
+    fade.addColorStop(0.52, 'rgba(0, 0, 0, 0.66)');
+    fade.addColorStop(0.78, 'rgba(0, 0, 0, 0.90)');
+    fade.addColorStop(1, 'rgba(0, 0, 0, 1)');
+    extensionCtx.fillStyle = fade;
+    extensionCtx.fillRect(0, frameBottom, hostW, gapBottom);
     extensionCtx.restore();
   }
 
