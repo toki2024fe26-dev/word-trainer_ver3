@@ -2648,3 +2648,263 @@ body.title-screen-active { background: #101529; }
 @media (prefers-reduced-motion: reduce) {
   .title-mode-card, .mode-detail-card { transition: none; }
 }
+
+
+/* v62 — portrait-first battle layout: stay upright and fit the viewport */
+@media (max-width: 760px) and (orientation: portrait) {
+  html, body { min-height: 100%; overscroll-behavior: none; }
+  body.battle-active #quizScreen {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    overscroll-behavior: none;
+  }
+  body.battle-active .battle-card { height: 100%; }
+  body.battle-active .battle-window { inset: 0; }
+  body.battle-active .quiz-top {
+    top: max(6px, env(safe-area-inset-top));
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    height: 28px;
+    gap: 6px;
+  }
+  body.battle-active .quiz-top .back-btn { padding: 5px 7px; font-size: 9px; }
+  body.battle-active .question-progress { padding: 4px 7px; gap: 5px; font-size: 9px; }
+  body.battle-active .question-progress .progress-track { width: clamp(48px, 16vw, 82px); }
+  body.battle-active .battle-header {
+    top: max(42px, calc(env(safe-area-inset-top) + 34px));
+    left: max(10px, env(safe-area-inset-left));
+    right: max(10px, env(safe-area-inset-right));
+    gap: 8px;
+  }
+  body.battle-active .battle-header h2 { max-width: 54vw; font-size: clamp(12px, 3.5vw, 17px); }
+  body.battle-active .stage-badge { padding: 3px 6px; font-size: 8px; }
+  body.battle-active .battle-timer { min-width: 52px; padding: 4px 7px !important; }
+  body.battle-active .battle-timer strong { font-size: 15px; }
+  body.battle-active .combat-hp { top: 52%; width: clamp(82px, 25vw, 120px); }
+  body.battle-active .player-combat-hp { left: 18%; }
+  body.battle-active .enemy-combat-hp { left: 82%; }
+  body.battle-active .combat-hp .hp-track { height: 7px; }
+  body.battle-active .combat-hp > span { font-size: 7px; }
+  body.battle-active .combat-hp small { font-size: 8px; }
+
+  /* A full-width command tray keeps the question and all four answers visible. */
+  body.battle-active .command-panel {
+    left: max(7px, env(safe-area-inset-left));
+    right: max(7px, env(safe-area-inset-right));
+    bottom: max(6px, env(safe-area-inset-bottom));
+    height: clamp(190px, 34dvh, 258px);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(76px, 1fr);
+    gap: 5px 7px;
+    padding: 7px 8px;
+    border-radius: 15px;
+  }
+  body.battle-active .battle-message { grid-column: 1 / -1; grid-row: 1; padding: 0 1px 4px; font-size: 8px; }
+  body.battle-active .question-box {
+    grid-column: 1 / -1; grid-row: 2;
+    flex-direction: row; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 5px 9px; border-radius: 9px;
+  }
+  body.battle-active .question-label { flex: 0 0 auto; font-size: 7px; }
+  body.battle-active .question-word { margin: 0; text-align: right; font-size: clamp(17px, 5vw, 25px); }
+  body.battle-active .answers-grid {
+    grid-column: 1 / -1; grid-row: 3;
+    min-height: 76px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(34px, 1fr));
+    gap: 5px;
+  }
+  body.battle-active .answer-btn { padding: 5px 6px; font-size: clamp(10px, 3vw, 13px); border-radius: 9px; }
+  body.battle-active .recovery-item-row { position: absolute; left: 8px; bottom: 5px; z-index: 3; }
+  body.battle-active .recovery-elixir-btn { padding: 3px 5px; font-size: 7px; border-radius: 7px; }
+  body.battle-active .recovery-elixir-btn small { font-size: 6px; }
+  body.battle-active .battle-footer { position: absolute; right: 8px; bottom: 7px; z-index: 3; gap: 8px; font-size: 8px; }
+  body.battle-active .battle-footer b { font-size: 9px; }
+}
+
+@media (max-width: 380px) and (orientation: portrait) {
+  body.battle-active .command-panel { height: clamp(184px, 35dvh, 232px); padding: 6px; gap: 4px; }
+  body.battle-active .answers-grid { gap: 4px; }
+  body.battle-active .answer-btn { font-size: 10px; }
+}
+
+/* v64 — portrait battle balance: battlefield 40%, command HUD 60% of viewport */
+@media (max-width: 760px) and (orientation: portrait) {
+  body.battle-active #quizScreen {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow: hidden !important;
+  }
+
+  /* The scenic battlefield occupies the upper half; keep 16:9 pixel art undistorted. */
+  body.battle-active .battle-visual-frame {
+    position: absolute;
+    z-index: 3;
+    left: 50%;
+    top: 20vh;
+    top: 20dvh;
+    transform: translate(-50%, -50%);
+    width: min(100%, calc(40vh * 16 / 9));
+    width: min(100%, calc(40dvh * 16 / 9));
+    height: auto;
+    aspect-ratio: 16 / 9;
+    max-width: 100%;
+    max-height: none;
+  }
+
+  /* Lower 60% of the viewport for the question, message, and four answer buttons. */
+  body.battle-active .command-panel {
+    box-sizing: border-box;
+    left: max(7px, env(safe-area-inset-left));
+    right: max(7px, env(safe-area-inset-right));
+    bottom: 0;
+    height: 60vh;
+    height: 60dvh;
+    min-height: 0;
+    max-height: 60vh;
+    max-height: 60dvh;
+    padding: 8px 9px max(8px, env(safe-area-inset-bottom));
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    gap: 6px 8px;
+    border-radius: 15px 15px 0 0;
+    overflow: hidden;
+  }
+
+  body.battle-active .battle-message {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    min-height: 0;
+    padding: 0 2px 5px;
+    font-size: clamp(8px, 2.2vw, 10px);
+    line-height: 1.3;
+  }
+
+  body.battle-active .question-box {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-height: 0;
+    padding: 7px 10px;
+    gap: 8px;
+  }
+  body.battle-active .question-label { font-size: 8px; }
+  body.battle-active .question-word {
+    margin: 0;
+    font-size: clamp(19px, 5.5vw, 27px);
+    line-height: 1.25;
+  }
+
+  body.battle-active .answers-grid {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    min-height: 0;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding-bottom: 25px;
+  }
+  body.battle-active .answer-btn {
+    min-height: 0;
+    padding: 6px;
+    font-size: clamp(11px, 3.1vw, 14px);
+    line-height: 1.25;
+  }
+
+  body.battle-active .recovery-item-row {
+    position: absolute;
+    left: 8px;
+    bottom: max(5px, env(safe-area-inset-bottom));
+    z-index: 4;
+  }
+  body.battle-active .recovery-elixir-btn { padding: 3px 6px; font-size: 7px; }
+  body.battle-active .recovery-elixir-btn small { font-size: 6px; }
+  body.battle-active .battle-footer {
+    position: absolute;
+    right: 9px;
+    bottom: max(7px, env(safe-area-inset-bottom));
+    z-index: 4;
+    gap: 8px;
+    font-size: 8px;
+  }
+  body.battle-active .battle-footer b { font-size: 9px; }
+
+  /* Keep character-attached HP bars aligned to the 16:9 scene. */
+  body.battle-active .battle-visual-frame .combat-hp { top: 70%; }
+}
+
+@media (max-width: 380px) and (orientation: portrait) {
+  body.battle-active .command-panel { padding-left: 7px; padding-right: 7px; gap: 5px; }
+  body.battle-active .answers-grid { gap: 5px; }
+  body.battle-active .answer-btn { font-size: 10px; }
+}
+
+
+/* Portrait stage fade: preserve the existing translucent glass HUD. */
+@media (max-width: 760px) and (orientation: portrait) {
+  body.battle-active .question-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  body.battle-active .question-word {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+/* Manual orientation switch for phones: rotate the game surface in-page so it
+   works even when the browser/device orientation lock cannot be controlled. */
+.orientation-toggle {
+  padding: 6px 9px;
+  color: rgba(255,255,255,.96);
+  background: rgba(21, 28, 47, .38);
+  border: 1px solid rgba(255,255,255,.38);
+  border-radius: 10px;
+  font: 10px monospace;
+  white-space: nowrap;
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+.quiz-top-left-controls { display:flex; align-items:center; gap:6px; min-width:0; }
+
+@media (max-width: 760px) and (orientation: portrait) {
+  body.battle-active.battle-manual-landscape #quizScreen {
+    width: 100dvh !important;
+    height: 100vw !important;
+    min-height: 0 !important;
+    inset: auto !important;
+    left: 100vw !important;
+    top: 0 !important;
+    transform: rotate(90deg);
+    transform-origin: top left;
+  }
+  body.battle-active.battle-manual-landscape .battle-card {
+    width: 100%; height: 100%;
+  }
+  body.battle-active.battle-manual-landscape .battle-visual-frame {
+    top: 50%;
+    width: min(100%, calc(100vw * 16 / 9));
+  }
+  body.battle-active.battle-manual-landscape .command-panel {
+    height: 46dvh;
+    max-height: 46dvh;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) and (orientation: landscape) {
+  body.battle-active.battle-manual-landscape #quizScreen {
+    width: 100dvh !important;
+    height: 100vw !important;
+    inset: auto !important;
+    left: 100vw !important;
+    top: 0 !important;
+    transform: rotate(90deg);
+    transform-origin: top left;
+  }
+}
