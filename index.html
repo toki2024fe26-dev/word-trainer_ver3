@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Silkscreen:wght@400;700&display=swap" rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css?v=20261014-title-hub-v61">
+  <link rel="stylesheet" href="style.css?v=20261015-grassland-sunny-fullwidth">
 </head>
 
 <body>
@@ -87,6 +87,9 @@
   </section>
 
   <section id="questMenuScreen" class="screen mode-menu-screen">
+    <canvas id="questStageBackground" class="title-stage-background quest-stage-background" aria-hidden="true"></canvas>
+    <div class="title-backdrop-shade quest-backdrop-shade" aria-hidden="true"></div>
+    <div class="title-pixel-frame quest-pixel-frame" aria-hidden="true"></div>
     <div class="screen-title">
       <button class="back-btn" data-screen="homeScreen">← TITLE</button>
       <div><span>ADVENTURE</span><h2>QUEST MODE</h2></div>
@@ -148,11 +151,11 @@
   </section>
 
   <section id="quizScreen" class="screen">
-
+    <canvas id="battleStageBackdrop" class="battle-stage-backdrop" aria-hidden="true"></canvas>
     <div class="quiz-top">
-      <div class="quiz-top-left-controls">
+      <div class="quiz-top-actions">
         <button class="back-btn" data-screen="homeScreen">← HOME</button>
-        <button id="orientationToggle" class="orientation-toggle" type="button" aria-label="画面の向きを切り替え" aria-pressed="false">↻ 横向き</button>
+        <button id="orientationToggleBtn" class="orientation-toggle-btn" type="button" aria-pressed="false" aria-label="画面の向きを切り替える">↻ 横向き表示</button>
       </div>
 
       <div class="question-progress">
